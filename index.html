@@ -10,8 +10,7 @@
     body { font-family: Arial, sans-serif; background:#111; color:#fff; margin:0; padding:24px; text-align:center; }
     h1 { margin: 0 0 8px; display:flex; align-items:center; gap:10px; justify-content:center; }
     .logo { width:28px; height:28px; border-radius:6px; background:#ffd54a; display:inline-block; }
-
-    .balance { font-size:18px; margin:4px 0 10px; }
+    .balance { font-size:18px; margin:4px 0 10px; position:relative; }
     .sub { opacity:.85; margin-bottom:14px; }
 
     /* Progress bar */
@@ -46,6 +45,27 @@
     .bad { color:#ff7a7a; }
     .muted { opacity:.7; }
     .claim { margin:18px auto 0; width:100%; max-width:420px; display:block; }
+
+    /* Flying coin + pop */
+    .coin {
+      position:fixed; width:18px; height:18px; border-radius:50%;
+      background: radial-gradient(circle at 30% 30%, #fff6, #fff0),
+                  radial-gradient(circle at 55% 55%, #ffd84d, #ffc02a);
+      box-shadow: 0 0 10px rgba(255,194,42,.6);
+      pointer-events:none; z-index:9999; transform:translate(-50%,-50%);
+      will-change: transform;
+    }
+    .pop {
+      position:fixed; color:#ffe16f; font-weight:700; font-size:16px; pointer-events:none; z-index:9999;
+      text-shadow: 0 2px 8px rgba(0,0,0,.6);
+      transform:translate(-50%,-50%) scale(0.8); opacity:0;
+      animation: popUp .8s ease forwards;
+    }
+    @keyframes popUp {
+      0% { transform:translate(-50%,-50%) scale(.8); opacity:0; }
+      15% { opacity:1; }
+      100% { transform:translate(-50%,-120%) scale(1.15); opacity:0; }
+    }
   </style>
 </head>
 <body>
@@ -78,38 +98,62 @@
     const tg = window.Telegram.WebApp;
     tg.ready(); tg.expand();
     try { tg.MainButton.hide(); } catch {}
-
     const alertBox = (m) => { try { tg.showAlert(m); } catch { alert(m); } };
 
-    /* 🎉 Confetti (no libs) */
-    function burst(x = window.innerWidth / 2, y = 120, n = 18) {
-      const c = document.createElement('canvas');
-      Object.assign(c.style, { position: 'fixed', left: 0, top: 0, pointerEvents: 'none', zIndex: 9999 });
-      const dpr = window.devicePixelRatio || 1;
-      c.width = innerWidth * dpr; c.height = innerHeight * dpr;
-      const g = c.getContext('2d'); g.scale(dpr, dpr);
-      document.body.appendChild(c);
-
-      const parts = Array.from({ length: n }, () => ({
-        x, y,
-        r: Math.random() * 2 + 2,
-        vx: (Math.random() * 2 - 1) * 4,
-        vy: (Math.random() * -3 - 3),
-        col: `hsl(${40 + Math.floor(Math.random() * 50)} 100% 60%)`,
-        life: 60
-      }));
-
-      (function loop() {
-        g.clearRect(0, 0, innerWidth, innerHeight);
-        parts.forEach(p => {
-          p.x += p.vx; p.y += p.vy; p.vy += 0.12; p.life--;
-          g.fillStyle = p.col; g.beginPath(); g.arc(p.x, p.y, p.r, 0, Math.PI * 2); g.fill();
-        });
-        if (parts.some(p => p.life > 0)) requestAnimationFrame(loop); else c.remove();
-      })();
+    /* ---------- SOUND (Web Audio) ---------- */
+    let AC;
+    function ctx(){ if(!AC){ AC = new (window.AudioContext||window.webkitAudioContext)(); } return AC; }
+    function tone(freq=440, dur=120, type='sine', vol=0.2){
+      const a = ctx();
+      const o = a.createOscillator();
+      const g = a.createGain();
+      o.type = type; o.frequency.value = freq;
+      g.gain.value = vol;
+      o.connect(g).connect(a.destination);
+      o.start();
+      setTimeout(()=>{ g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + 0.08); }, dur*0.6);
+      setTimeout(()=>{ o.stop(); }, dur);
+    }
+    function soundCorrect(){
+      tone(880,110,'triangle',0.18);
+      setTimeout(()=>tone(1320,110,'triangle',0.16), 90);
+    }
+    function soundWrong(){
+      tone(150,250,'sawtooth',0.14);
+      setTimeout(()=>tone(120,200,'sawtooth',0.12), 60);
     }
 
-    /* Persistent local progress (resets daily) */
+    /* ---------- Flying coin & +10 pop ---------- */
+    function flyCoin(fromEl, toEl){
+      const s = fromEl.getBoundingClientRect();
+      const t = toEl.getBoundingClientRect();
+      const coin = document.createElement('div');
+      coin.className = 'coin';
+      coin.style.left = `${s.left + s.width/2}px`;
+      coin.style.top  = `${s.top  + s.height/2}px`;
+      document.body.appendChild(coin);
+
+      const dx = (t.left + t.width/2) - (s.left + s.width/2);
+      const dy = (t.top  + 8) - (s.top + s.height/2);
+      const start = performance.now(), dur = 600;
+      (function anim(ts){
+        const p = Math.min(1, (ts-start)/dur);
+        const ease = 1 - Math.pow(1-p,3);
+        coin.style.transform = `translate(${dx*ease}px, ${dy*ease}px) scale(${1 - 0.3*ease})`;
+        if(p<1) requestAnimationFrame(anim); else coin.remove();
+      })(start);
+
+      // +10 pop near start
+      const pop = document.createElement('div');
+      pop.className = 'pop';
+      pop.textContent = '+10';
+      pop.style.left = `${s.left + s.width/2}px`;
+      pop.style.top  = `${s.top + s.height/2}px`;
+      document.body.appendChild(pop);
+      setTimeout(()=>pop.remove(), 900);
+    }
+
+    /* ---------- Persistent local progress ---------- */
     const STORAGE_KEY = "weks_progress_v1";
     const todayStr = () => new Date().toISOString().slice(0,10);
     function loadProgress() {
@@ -124,45 +168,44 @@
     function saveProgress() { localStorage.setItem(STORAGE_KEY, JSON.stringify(progress)); }
     function resetProgressForToday() {
       progress = { day: todayStr(), correct: 0, wrong: 0 };
-      saveProgress(); updateUI(); pendingBalance = 0; updateBalanceDisplay();
+      saveProgress(); updateUI(); pendingBalance = 0; updateBalanceDisplay(true);
     }
 
     let progress = loadProgress();
     let current = null;
 
-    /* Live balance (server + pending) */
+    /* ---------- Live balance (server + pending) ---------- */
     let serverBalance = 0;   // from KV
     let pendingBalance = 0;  // local (10 per correct)
+    let displayedBalance = 0; // last number shown
 
-    /* Server daily base (already used before this session) */
+    /* ---------- Server daily base ---------- */
     let serverTodayUsed = 0;
     const DAILY_CAP = 100;
 
-    /* Animated coin counter */
-    function animateCoins(el, from, to, dur=600){
+    /* ---------- Animated coin counter ---------- */
+    function animateCoins(from, to, dur=600){
+      const el = document.getElementById("balance");
       const start = performance.now();
-      function tick(t){
+      (function tick(t){
         const p = Math.min(1, (t-start)/dur);
         const eased = 1 - Math.pow(1-p, 3);
         const val = Math.round(from + (to-from)*eased);
         el.textContent = `💰 Balance: ${val}`;
-        if(p<1) requestAnimationFrame(tick);
-      }
-      requestAnimationFrame(tick);
+        if(p<1) requestAnimationFrame(tick); else { displayedBalance = to; }
+      })(start);
+    }
+    function updateBalanceDisplay(force=false){
+      const next = serverBalance + pendingBalance;
+      if(force){ displayedBalance = next; document.getElementById("balance").textContent = `💰 Balance: ${next}`; return; }
+      animateCoins(displayedBalance, next);
     }
 
-    /* UI helpers */
+    /* ---------- UI helpers ---------- */
     function updateUI(){
       document.getElementById("c").textContent = progress.correct;
       document.getElementById("w").textContent = progress.wrong;
       updateBar();
-    }
-    function updateBalanceDisplay(){
-      const el = document.getElementById("balance");
-      const prev = Number(el.dataset.v || 0);
-      const next = serverBalance + pendingBalance;
-      el.dataset.v = String(next);
-      animateCoins(el, prev, next);
     }
     function updateBar(){
       const localUsed = progress.correct + progress.wrong;
@@ -177,7 +220,7 @@
       f.className = "meta " + (good===true?"ok":good===false?"bad":"");
     }
 
-    /* Quiz */
+    /* ---------- Quiz ---------- */
     function randint(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
     function newQuestion(){
       const ops = ["+","-","×","÷"];
@@ -203,24 +246,35 @@
         const btn = document.createElement("button");
         btn.className = "btn";
         btn.textContent = v;
-        btn.onclick = ()=>choose(v);
+        btn.onclick = (e)=>choose(v, e.currentTarget);
         box.appendChild(btn);
       });
       flash("");
     }
 
-    function choose(v){
+    function choose(v, btnEl){
       if(!current) return;
       if(Number(v)===current.ans){
         progress.correct++;
         pendingBalance += 10; // instant local reward
         flash("Correct! +10 coins (pending) ✅", true);
         tg.HapticFeedback.notificationOccurred("success");
-        burst();                       // 🎉 small confetti on correct
+        soundCorrect();
+        flyCoin(btnEl, document.getElementById("balance")); // ✨ coin to balance
       } else {
         progress.wrong++;
         flash(`Oops! Correct was ${current.ans}`, false);
         tg.HapticFeedback.notificationOccurred("error");
+        soundWrong();
+        // red pop
+        const r = btnEl.getBoundingClientRect();
+        const pop = document.createElement('div');
+        pop.className = 'pop'; pop.style.color = '#ff7a7a';
+        pop.textContent = '✖';
+        pop.style.left = `${r.left + r.width/2}px`;
+        pop.style.top  = `${r.top + r.height/2}px`;
+        document.body.appendChild(pop);
+        setTimeout(()=>pop.remove(), 900);
       }
       saveProgress();
       updateUI();
@@ -228,7 +282,7 @@
       newQuestion();
     }
 
-    /* Fetch balance + today used from server */
+    /* ---------- Fetch balance + today used from server ---------- */
     async function fetchBalanceAndToday() {
       try {
         const resp = await fetch("https://weks-bot.vercel.app/api/balance", {
@@ -238,12 +292,12 @@
         });
         const data = await resp.json();
         if (data.ok) {
-          serverBalance = data.balance;
+          serverBalance   = data.balance;
           serverTodayUsed = data.todayUsed || 0;
-          pendingBalance = progress.correct * 10; // restore pending
-          const balEl = document.getElementById("balance");
-          balEl.dataset.v = String(serverBalance); // base for first animation
-          updateBalanceDisplay();
+          pendingBalance  = progress.correct * 10; // restore pending
+          displayedBalance = serverBalance;        // base for animations
+          document.getElementById("balance").textContent = `💰 Balance: ${displayedBalance}`;
+          updateBalanceDisplay(); // animate to server + pending
           updateBar();
         } else {
           document.getElementById("balance").textContent = "💰 Balance: error";
@@ -253,7 +307,7 @@
       }
     }
 
-    /* Claim */
+    /* ---------- Claim ---------- */
     async function claim() {
       try {
         const resp = await fetch("https://weks-bot.vercel.app/api/claim", {
@@ -277,7 +331,6 @@
             `Keep practicing! Answers won’t add coins until tomorrow.\n\n` +
             `Balance: ${data.balance}`
           );
-          // (no big confetti on cap)
         } else {
           alertBox(
             `✅ Claimed ${data.creditedCorrect} correct (+${data.coins} coins).\n` +
@@ -285,15 +338,21 @@
             `Today used: ${data.today}/${data.dailyCap}\n` +
             `Balance: ${data.balance}`
           );
-          burst(window.innerWidth / 2, 140, 32);   // 🎉 big win confetti on success
+          // celebratory "coin shower": fly a few coins from screen bottom
+          for(let i=0;i<4;i++){
+            setTimeout(()=>{
+              const fake = { getBoundingClientRect: ()=>({ left: innerWidth*(.2+.6*Math.random()), top: innerHeight-40, width:0, height:0 }) };
+              flyCoin(fake, document.getElementById("balance"));
+            }, i*120);
+          }
         }
 
         // Sync with server truth
-        serverBalance = data.balance;
+        serverBalance   = data.balance;
         serverTodayUsed = data.today; // used today after claim
         resetProgressForToday();      // clears local pending
         updateBar();
-        updateBalanceDisplay();
+        updateBalanceDisplay(true);   // snap to new server balance
 
         setTimeout(()=>{ try { tg.close(); } catch {} }, 150);
       } catch (e) {
@@ -304,7 +363,7 @@
 
     document.getElementById("claim").onclick = claim;
 
-    /* Init */
+    /* ---------- Init ---------- */
     fetchBalanceAndToday();
     newQuestion();
     updateUI();
