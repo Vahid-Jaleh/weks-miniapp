@@ -8,10 +8,24 @@
   <style>
     :root { color-scheme: light dark; }
     body { font-family: Arial, sans-serif; background:#111; color:#fff; margin:0; padding:24px; text-align:center; }
-    h1 { margin: 0 0 8px; display:flex; align-items:center; gap:10px; justify-content:center; }
+
+    /* smaller title */
+    h1 { margin: 0 0 8px; display:flex; align-items:center; gap:10px; justify-content:center; font-size:20px; line-height:1.2; }
     .logo { width:28px; height:28px; border-radius:6px; background:#ffd54a; display:inline-block; }
+
     .balance { font-size:18px; margin:4px 0 10px; position:relative; }
     .sub { opacity:.85; margin-bottom:14px; }
+
+    /* quick actions (added, does not change existing layout) */
+    .actions { display:flex; gap:8px; justify-content:center; margin:6px 0 10px; }
+    .ico-btn {
+      display:inline-flex; align-items:center; gap:6px;
+      padding:8px 10px; border:0; border-radius:10px; font-size:13px; cursor:pointer; color:#111;
+      background: linear-gradient(180deg,#ffe16f,#ffc22a);
+      box-shadow: 0 4px 14px rgba(255,194,42,.35);
+    }
+    .ico-btn:active { transform: translateY(1px); }
+    .ico { font-size:16px; }
 
     /* Progress bar */
     .bar-wrap { margin: 0 auto 16px; max-width:420px; background:#1c1c1c; border-radius:12px; padding:8px 10px; box-shadow:0 4px 14px rgba(0,0,0,.35); }
@@ -46,365 +60,16 @@
     .muted { opacity:.7; }
     .claim { margin:18px auto 0; width:100%; max-width:420px; display:block; }
 
-    /* Flying coin + pop */
+    /* Bigger flying coin + pop */
     .coin {
-      position:fixed; width:18px; height:18px; border-radius:50%;
-      background: radial-gradient(circle at 30% 30%, #fff6, #fff0),
-                  radial-gradient(circle at 55% 55%, #ffd84d, #ffc02a);
-      box-shadow: 0 0 10px rgba(255,194,42,.6);
+      position:fixed; width:26px; height:26px; border-radius:50%;
+      background:
+        radial-gradient(circle at 30% 30%, #ffffff66, #ffffff00 60%),
+        radial-gradient(circle at 55% 55%, #ffd84d, #ffc02a);
+      box-shadow: 0 0 14px rgba(255,194,42,.75), 0 0 30px rgba(255,194,42,.25);
       pointer-events:none; z-index:9999; transform:translate(-50%,-50%);
-      will-change: transform;
+      will-change: transform, opacity;
     }
     .pop {
       position:fixed; color:#ffe16f; font-weight:700; font-size:16px; pointer-events:none; z-index:9999;
-      text-shadow: 0 2px 8px rgba(0,0,0,.6);
-      transform:translate(-50%,-50%) scale(0.8); opacity:0;
-      animation: popUp .8s ease forwards;
-    }
-    @keyframes popUp {
-      0% { transform:translate(-50%,-50%) scale(.8); opacity:0; }
-      15% { opacity:1; }
-      100% { transform:translate(-50%,-120%) scale(1.15); opacity:0; }
-    }
-
-    /* 👍 thumbs-up animation */
-    .thumb {
-      position:fixed; font-size:28px; pointer-events:none; z-index:9999;
-      text-shadow: 0 2px 8px rgba(0,0,0,.5);
-      transform:translate(-50%,-50%) scale(.7) rotate(-8deg); opacity:0;
-      animation: thumbUp .9s ease-out forwards;
-    }
-    @keyframes thumbUp {
-      0%   { transform:translate(-50%,-20%) scale(.7) rotate(-8deg); opacity:0; }
-      15%  { opacity:1; }
-      100% { transform:translate(-50%,-140%) scale(1.1) rotate(6deg); opacity:0; }
-    }
-  </style>
-</head>
-<body>
-  <h1><span class="logo"></span> WEKS <b>Tap-To-Math</b></h1>
-  <div id="balance" class="balance" data-v="0">💰 Balance: …</div>
-
-  <!-- Daily progress bar -->
-  <div class="bar-wrap">
-    <div class="bar-label">
-      <span>Daily progress</span>
-      <span id="remText">0 / 100</span>
-    </div>
-    <div class="bar">
-      <div id="fill" class="fill"></div>
-    </div>
-  </div>
-
-  <div class="sub">Solve, stack answers, then <b>Claim</b> to earn coins. You can keep practicing after the cap, but extra answers won’t add coins.</div>
-
-  <div class="card">
-    <div class="meta">Correct: <span id="c">0</span> • Wrong: <span id="w">0</span></div>
-    <div id="q" class="q">Loading…</div>
-    <div class="grid" id="answers"></div>
-    <div id="flash" class="meta"></div>
-  </div>
-
-  <button id="claim" class="btn claim">CLAIM & CLOSE</button>
-
-  <script>
-    const tg = window.Telegram.WebApp;
-    tg.ready(); tg.expand();
-    try { tg.MainButton.hide(); } catch {}
-    const alertBox = (m) => { try { tg.showAlert(m); } catch { alert(m); } };
-
-    /* ---------- SOUND (Web Audio) ---------- */
-    let AC;
-    function ctx(){ if(!AC){ AC = new (window.AudioContext||window.webkitAudioContext)(); } return AC; }
-    // Applause-like burst using filtered noise with quick repeats
-    function applause(){
-      const a = ctx();
-      const makeClap = (when=0, len=0.25, freq=1800)=>{
-        const n = a.createBufferSource();
-        const buf = a.createBuffer(1, a.sampleRate*len, a.sampleRate);
-        const d = buf.getChannelData(0);
-        for(let i=0;i<d.length;i++){
-          const t = i/a.sampleRate;
-          // noisy burst with fast decay
-          d[i] = (Math.random()*2-1) * Math.pow(1 - t/len, 2.2);
-        }
-        n.buffer = buf;
-        const bp = a.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=freq; bp.Q.value=0.6;
-        const g  = a.createGain(); g.gain.value = 0.28;
-        n.connect(bp).connect(g).connect(a.destination);
-        n.start(a.currentTime + when);
-      };
-      // a few quick claps staggered -> applause feel
-      makeClap(0.00, 0.22, 1800);
-      makeClap(0.08, 0.22, 1600);
-      makeClap(0.16, 0.22, 2000);
-      makeClap(0.28, 0.28, 1700);
-    }
-    function soundWrong(){
-      const a = ctx();
-      const o = a.createOscillator(), g=a.createGain();
-      o.type='sawtooth'; o.frequency.value=160; g.gain.value=0.14;
-      o.connect(g).connect(a.destination); o.start();
-      setTimeout(()=>{ g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime+0.08); o.stop(a.currentTime+0.1); }, 220);
-    }
-
-    /* ---------- Flying coin & +10 pop ---------- */
-    function flyCoin(fromEl, toEl){
-      const s = fromEl.getBoundingClientRect();
-      const t = toEl.getBoundingClientRect();
-      const coin = document.createElement('div');
-      coin.className = 'coin';
-      coin.style.left = `${s.left + s.width/2}px`;
-      coin.style.top  = `${s.top  + s.height/2}px`;
-      document.body.appendChild(coin);
-
-      const dx = (t.left + t.width/2) - (s.left + s.width/2);
-      const dy = (t.top  + 8) - (s.top + s.height/2);
-      const start = performance.now(), dur = 600;
-      (function anim(ts){
-        const p = Math.min(1, (ts-start)/dur);
-        const ease = 1 - Math.pow(1-p,3);
-        coin.style.transform = `translate(${dx*ease}px, ${dy*ease}px) scale(${1 - 0.3*ease})`;
-        if(p<1) requestAnimationFrame(anim); else coin.remove();
-      })(start);
-
-      // +10 pop near start
-      const pop = document.createElement('div');
-      pop.className = 'pop';
-      pop.textContent = '+10';
-      pop.style.left = `${s.left + s.width/2}px`;
-      pop.style.top  = `${s.top + s.height/2}px`;
-      document.body.appendChild(pop);
-      setTimeout(()=>pop.remove(), 900);
-    }
-
-    /* ---------- Thumbs-up animation ---------- */
-    function thumbs(btnEl){
-      const r = btnEl.getBoundingClientRect();
-      const t = document.createElement('div');
-      t.className = 'thumb';
-      t.textContent = '👍';
-      t.style.left = `${r.left + r.width/2}px`;
-      t.style.top  = `${r.top + r.height/2}px`;
-      document.body.appendChild(t);
-      setTimeout(()=>t.remove(), 950);
-    }
-
-    /* ---------- Persistent local progress ---------- */
-    const STORAGE_KEY = "weks_progress_v1";
-    const todayStr = () => new Date().toISOString().slice(0,10);
-    function loadProgress() {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return { day: todayStr(), correct: 0, wrong: 0 };
-        const obj = JSON.parse(raw);
-        if (obj.day !== todayStr()) return { day: todayStr(), correct: 0, wrong: 0 };
-        return obj;
-      } catch { return { day: todayStr(), correct: 0, wrong: 0 }; }
-    }
-    function saveProgress() { localStorage.setItem(STORAGE_KEY, JSON.stringify(progress)); }
-    function resetProgressForToday() {
-      progress = { day: todayStr(), correct: 0, wrong: 0 };
-      saveProgress(); updateUI(); pendingBalance = 0; updateBalanceDisplay(true);
-    }
-
-    let progress = loadProgress();
-    let current = null;
-
-    /* ---------- Live balance (server + pending) ---------- */
-    let serverBalance = 0;   // from KV
-    let pendingBalance = 0;  // local (10 per correct)
-    let displayedBalance = 0; // last number shown
-
-    /* ---------- Server daily base ---------- */
-    let serverTodayUsed = 0;
-    const DAILY_CAP = 100;
-
-    /* ---------- Animated coin counter ---------- */
-    function animateCoins(from, to, dur=600){
-      const el = document.getElementById("balance");
-      const start = performance.now();
-      (function tick(t){
-        const p = Math.min(1, (t-start)/dur);
-        const eased = 1 - Math.pow(1-p, 3);
-        const val = Math.round(from + (to-from)*eased);
-        el.textContent = `💰 Balance: ${val}`;
-        if(p<1) requestAnimationFrame(tick); else { displayedBalance = to; }
-      })(start);
-    }
-    function updateBalanceDisplay(force=false){
-      const next = serverBalance + pendingBalance;
-      if(force){ displayedBalance = next; document.getElementById("balance").textContent = `💰 Balance: ${next}`; return; }
-      animateCoins(displayedBalance, next);
-    }
-
-    /* ---------- UI helpers ---------- */
-    function updateUI(){
-      document.getElementById("c").textContent = progress.correct;
-      document.getElementById("w").textContent = progress.wrong;
-      updateBar();
-    }
-    function updateBar(){
-      const localUsed = progress.correct + progress.wrong;
-      const used = Math.min(DAILY_CAP, serverTodayUsed + localUsed);
-      const pct = (used / DAILY_CAP) * 100;
-      document.getElementById("fill").style.width = `${pct}%`;
-      document.getElementById("remText").textContent = `${used} / ${DAILY_CAP}`;
-    }
-    function flash(text, good){
-      const f = document.getElementById("flash");
-      f.textContent = text;
-      f.className = "meta " + (good===true?"ok":good===false?"bad":"");
-    }
-
-    /* ---------- Quiz ---------- */
-    function randint(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
-    function newQuestion(){
-      const ops = ["+","-","×","÷"];
-      const op = ops[randint(0,ops.length-1)];
-      let a = randint(2,25), b = randint(2,25), ans=0;
-      if(op==="+"){ ans = a+b; }
-      else if(op==="-"){ if(b>a){ [a,b]=[b,a]; } ans=a-b; }
-      else if(op==="×"){ ans=a*b; }
-      else if(op==="÷"){ ans = randint(2,12); b = randint(2,12); a = ans*b; }
-      current = { text: `${a} ${op} ${b} = ?`, ans };
-      document.getElementById("q").textContent = current.text;
-
-      const opts = new Set([ans]);
-      while(opts.size<4){
-        const delta = randint(1,10), sign = Math.random()<0.5?-1:1;
-        opts.add(ans + sign*delta);
-      }
-      const shuffled = Array.from(opts).sort(()=>Math.random()-0.5);
-
-      const box = document.getElementById("answers");
-      box.innerHTML = "";
-      shuffled.forEach(v=>{
-        const btn = document.createElement("button");
-        btn.className = "btn";
-        btn.textContent = v;
-        btn.onclick = (e)=>choose(v, e.currentTarget);
-        box.appendChild(btn);
-      });
-      flash("");
-    }
-
-    function choose(v, btnEl){
-      if(!current) return;
-      if(Number(v)===current.ans){
-        progress.correct++;
-        pendingBalance += 10; // instant local reward
-        flash("Correct! +10 coins (pending) ✅", true);
-        tg.HapticFeedback.notificationOccurred("success");
-        applause();                    // 👏 applause sound
-        thumbs(btnEl);                 // 👍 thumbs-up at the button
-        flyCoin(btnEl, document.getElementById("balance")); // ✨ coin to balance
-      } else {
-        progress.wrong++;
-        flash(`Oops! Correct was ${current.ans}`, false);
-        tg.HapticFeedback.notificationOccurred("error");
-        soundWrong();                  // buzzer
-        // red pop at wrong
-        const r = btnEl.getBoundingClientRect();
-        const pop = document.createElement('div');
-        pop.className = 'pop'; pop.style.color = '#ff7a7a';
-        pop.textContent = '✖';
-        pop.style.left = `${r.left + r.width/2}px`;
-        pop.style.top  = `${r.top + r.height/2}px`;
-        document.body.appendChild(pop);
-        setTimeout(()=>pop.remove(), 900);
-      }
-      saveProgress();
-      updateUI();
-      updateBalanceDisplay();
-      newQuestion();
-    }
-
-    /* ---------- Fetch balance + today used from server ---------- */
-    async function fetchBalanceAndToday() {
-      try {
-        const resp = await fetch("https://weks-bot.vercel.app/api/balance", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ initData: tg.initData || "" })
-        });
-        const data = await resp.json();
-        if (data.ok) {
-          serverBalance   = data.balance;
-          serverTodayUsed = data.todayUsed || 0;
-          pendingBalance  = progress.correct * 10; // restore pending
-          displayedBalance = serverBalance;        // base
-          document.getElementById("balance").textContent = `💰 Balance: ${displayedBalance}`;
-          updateBalanceDisplay(); // animate to server + pending
-          updateBar();
-        } else {
-          document.getElementById("balance").textContent = "💰 Balance: error";
-        }
-      } catch {
-        document.getElementById("balance").textContent = "💰 Balance: error";
-      }
-    }
-
-    /* ---------- Claim ---------- */
-    async function claim() {
-      try {
-        const resp = await fetch("https://weks-bot.vercel.app/api/claim", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            initData: tg.initData || "",
-            correct: progress.correct,
-            wrong: progress.wrong
-          })
-        });
-        const data = await resp.json();
-        if (!data.ok) {
-          alertBox("Claim failed: " + (data.error || "Unknown error"));
-          return;
-        }
-
-        if (data.message === "DAILY_CAP_REACHED") {
-          alertBox(
-            `🎉 You reached the daily cap of ${data.dailyCap}.\n` +
-            `Keep practicing! Answers won’t add coins until tomorrow.\n\n` +
-            `Balance: ${data.balance}`
-          );
-        } else {
-          alertBox(
-            `✅ Claimed ${data.creditedCorrect} correct (+${data.coins} coins).\n` +
-            `❌ Wrong: ${data.creditedWrong}\n` +
-            `Today used: ${data.today}/${data.dailyCap}\n` +
-            `Balance: ${data.balance}`
-          );
-          // coin shower to balance
-          for(let i=0;i<4;i++){
-            setTimeout(()=>{
-              const fake = { getBoundingClientRect: ()=>({ left: innerWidth*(.2+.6*Math.random()), top: innerHeight-40, width:0, height:0 }) };
-              flyCoin(fake, document.getElementById("balance"));
-            }, i*120);
-          }
-        }
-
-        // Sync with server truth
-        serverBalance   = data.balance;
-        serverTodayUsed = data.today; // used today after claim
-        resetProgressForToday();      // clears local pending
-        updateBar();
-        updateBalanceDisplay(true);   // snap to new server balance
-
-        setTimeout(()=>{ try { tg.close(); } catch {} }, 150);
-      } catch (e) {
-        console.error(e);
-        alertBox("Could not send claim. Check your internet and try again.");
-      }
-    }
-
-    document.getElementById("claim").onclick = claim;
-
-    /* ---------- Init ---------- */
-    fetchBalanceAndToday();
-    newQuestion();
-    updateUI();
-  </script>
-</body>
-</html>
+      text-shadow: 0 2px 8px rgba(0
