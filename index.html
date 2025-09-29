@@ -69,6 +69,35 @@
 
   <script>
     const tg = window.Telegram.WebApp;
+    // 🎉 Confetti burst function
+function burst(x = window.innerWidth / 2, y = 120, n = 18) {
+  const c = document.createElement('canvas');
+  Object.assign(c.style, { position: 'fixed', left: 0, top: 0, pointerEvents: 'none', zIndex: 9999 });
+  const dpr = window.devicePixelRatio || 1;
+  c.width = innerWidth * dpr; c.height = innerHeight * dpr;
+  const g = c.getContext('2d'); g.scale(dpr, dpr);
+  document.body.appendChild(c);
+
+  const parts = Array.from({ length: n }, () => ({
+    x, y,
+    r: Math.random() * 2 + 2,
+    vx: (Math.random() * 2 - 1) * 4,
+    vy: (Math.random() * -3 - 3),
+    col: `hsl(${40 + Math.floor(Math.random() * 50)} 100% 60%)`,
+    life: 60
+  }));
+
+  (function loop() {
+    g.clearRect(0, 0, innerWidth, innerHeight);
+    parts.forEach(p => {
+      p.x += p.vx; p.y += p.vy; p.vy += 0.12; p.life--;
+      g.fillStyle = p.col; g.beginPath(); g.arc(p.x, p.y, p.r, 0, Math.PI * 2); g.fill();
+    });
+    if (parts.some(p => p.life > 0)) requestAnimationFrame(loop);
+    else c.remove();
+  })();
+}
+
     tg.ready(); tg.expand();
     try { tg.MainButton.hide(); } catch {}
     const alertBox = (m) => { try { tg.showAlert(m); } catch { alert(m); } };
@@ -188,6 +217,13 @@
       updateBalanceDisplay();
       newQuestion();
     }
+if (Number(v)===current.ans){
+  progress.correct++;
+  pendingBalance += 10; // instant local reward
+  flash("Correct! +10 coins (pending) ✅", true);
+  tg.HapticFeedback.notificationOccurred("success");
+  burst();  // 🎉 small confetti on correct answer
+}
 
     // ---- fetch balance + today used from server ----
     async function fetchBalanceAndToday() {
@@ -239,6 +275,8 @@
             `Keep practicing! Answers won’t add coins until tomorrow.\n\n` +
             `Balance: ${data.balance}`
           );
+          burst(window.innerWidth / 2, 140, 32); // 🎉 bigger confetti when claim succeeds
+
         } else {
           alertBox(
             `✅ Claimed ${data.creditedCorrect} correct (+${data.coins} coins).\n` +
@@ -271,3 +309,4 @@
   </script>
 </body>
 </html>
+
