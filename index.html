@@ -42,13 +42,35 @@
     tg.ready(); tg.expand();
     try { tg.MainButton.hide(); } catch {}
 
-    const toast = (m) => { try { tg.showToast(m); } catch {} };
     const alertBox = (m) => { try { tg.showAlert(m); } catch { alert(m); } };
 
-    let correct = 0, wrong = 0, current = null;
+    // ---------- persistence ----------
+    const STORAGE_KEY = "weks_progress_v1";
+    const todayStr = () => new Date().toISOString().slice(0,10);
 
+    function loadProgress() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return { day: todayStr(), correct: 0, wrong: 0 };
+        const obj = JSON.parse(raw);
+        if (obj.day !== todayStr()) return { day: todayStr(), correct: 0, wrong: 0 }; // new day
+        return obj;
+      } catch { return { day: todayStr(), correct: 0, wrong: 0 }; }
+    }
+    function saveProgress() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+    }
+    function resetProgressForToday() {
+      progress = { day: todayStr(), correct: 0, wrong: 0 };
+      saveProgress();
+      updateUI();
+    }
+
+    let progress = loadProgress();
+
+    // ---------- quiz ----------
+    let current = null;
     function randint(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
-
     function newQuestion(){
       const ops = ["+","-","×","÷"];
       const op = ops[randint(0,ops.length-1)];
@@ -57,9 +79,7 @@
       if(op==="+"){ ans = a+b; }
       else if(op==="-"){ if(b>a){ [a,b]=[b,a]; } ans=a-b; }
       else if(op==="×"){ ans=a*b; }
-      else if(op==="÷"){
-        ans = randint(2,12); b = randint(2,12); a = ans*b;
-      }
+      else if(op==="÷"){ ans = randint(2,12); b = randint(2,12); a = ans*b; }
 
       current = { text: `${a} ${op} ${b} = ?`, ans };
       document.getElementById("q").textContent = current.text;
@@ -81,6 +101,7 @@
         box.appendChild(btn);
       });
       flash("");
+      updateUI();
     }
 
     function flash(text, good){
@@ -88,28 +109,32 @@
       f.textContent = text;
       f.className = "meta " + (good===true?"ok":good===false?"bad":"");
     }
+    function updateUI(){
+      document.getElementById("c").textContent = progress.correct;
+      document.getElementById("w").textContent = progress.wrong;
+    }
 
     function choose(v){
       if(!current) return;
       if(Number(v)===current.ans){
-        correct++; flash("Correct! Ready to claim later ✅", true);
+        progress.correct++; flash("Correct! Ready to claim later ✅", true);
         tg.HapticFeedback.notificationOccurred("success");
       } else {
-        wrong++; flash(`Oops! Correct was ${current.ans}`, false);
+        progress.wrong++; flash(`Oops! Correct was ${current.ans}`, false);
         tg.HapticFeedback.notificationOccurred("error");
       }
-      document.getElementById("c").textContent = correct;
-      document.getElementById("w").textContent = wrong;
+      saveProgress();
+      updateUI();
       newQuestion();
     }
 
+    // ---------- claim ----------
     async function claim() {
       try {
-        toast("Sending claim…");
         const resp = await fetch("https://weks-bot.vercel.app/api/claim", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ initData: tg.initData || "", correct })
+          body: JSON.stringify({ initData: tg.initData || "", correct: progress.correct })
         });
         const data = await resp.json();
         if (!data.ok) {
@@ -120,6 +145,9 @@
           ? `✔️ Daily cap reached (${data.dailyCap}/day).`
           : `✅ Claimed ${data.creditedQ} answers (+${data.coins} coins).`;
         alertBox(`${msg}\nToday: ${data.today}/${data.dailyCap}\nBalance: ${data.balance}`);
+
+        // Reset local progress after a successful claim
+        resetProgressForToday();
         setTimeout(()=>{ try { tg.close(); } catch {} }, 150);
       } catch (e) {
         console.error(e);
@@ -128,6 +156,8 @@
     }
 
     document.getElementById("claim").onclick = claim;
+
+    // init
     newQuestion();
   </script>
 </body>
