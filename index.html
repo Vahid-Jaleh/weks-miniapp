@@ -8,33 +8,50 @@
   <style>
     :root { color-scheme: light dark; }
     body { font-family: Arial, sans-serif; background:#111; color:#fff; margin:0; padding:24px; text-align:center; }
+
+    /* smaller title */
     h1 { margin: 0 0 8px; display:flex; align-items:center; gap:10px; justify-content:center; font-size:20px; line-height:1.2; }
     .logo { width:28px; height:28px; border-radius:6px; background:#ffd54a; display:inline-block; }
 
     .balance { font-size:18px; margin:4px 0 10px; position:relative; }
     .sub { opacity:.85; margin-bottom:14px; }
 
+    /* actions row */
     .actions { display:flex; gap:8px; justify-content:center; margin:6px 0 10px; }
-    .ico-btn { display:inline-flex; align-items:center; gap:6px; padding:8px 10px; border:0; border-radius:10px; font-size:13px; cursor:pointer; color:#111;
-      background: linear-gradient(180deg,#ffe16f,#ffc22a); box-shadow: 0 4px 14px rgba(255,194,42,.35); }
+    .ico-btn {
+      display:inline-flex; align-items:center; gap:6px;
+      padding:8px 10px; border:0; border-radius:10px; font-size:13px; cursor:pointer; color:#111;
+      background: linear-gradient(180deg,#ffe16f,#ffc22a);
+      box-shadow: 0 4px 14px rgba(255,194,42,.35);
+    }
     .ico-btn:active { transform: translateY(1px); }
     .ico { font-size:16px; }
 
+    /* Progress bar */
     .bar-wrap { margin: 0 auto 16px; max-width:420px; background:#1c1c1c; border-radius:12px; padding:8px 10px; box-shadow:0 4px 14px rgba(0,0,0,.35); }
     .bar-label { display:flex; justify-content:space-between; font-size:13px; opacity:.9; margin-bottom:6px; }
     .bar { position:relative; width:100%; height:12px; background:#2a2a2a; border-radius:999px; overflow:hidden; }
     .fill { position:absolute; left:0; top:0; bottom:0; width:0%; border-radius:999px;
-      background: linear-gradient(90deg,#ffe16f,#ffc22a); box-shadow: inset 0 0 6px rgba(0,0,0,.35), 0 0 10px rgba(255,194,42,.45); transition: width .35s ease; }
+      background: linear-gradient(90deg,#ffe16f,#ffc22a);
+      box-shadow: inset 0 0 6px rgba(0,0,0,.35), 0 0 10px rgba(255,194,42,.45);
+      transition: width .35s ease; }
 
     .card { margin:0 auto; max-width:420px; background:#1c1c1c; padding:20px; border-radius:14px; box-shadow:0 6px 22px rgba(0,0,0,.5); }
     .q { font-size:34px; margin:18px 0; }
     .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 
+    /* Gold sheen button */
     .btn { padding:14px 10px; border:0; border-radius:12px; font-size:18px; cursor:pointer; color:#111;
-      background: linear-gradient(180deg,#ffe16f,#ffc22a); box-shadow: 0 6px 20px rgba(255,194,42,.35); position:relative; overflow:hidden; }
+      background: linear-gradient(180deg,#ffe16f,#ffc22a);
+      box-shadow: 0 6px 20px rgba(255,194,42,.35);
+      position:relative; overflow:hidden;
+    }
     .btn:active { transform: translateY(1px); }
-    .btn::after{ content:""; position:absolute; top:-100%; left:-50%; width:80%; height:300%;
-      background: linear-gradient(120deg, rgba(255,255,255,.0) 0%, rgba(255,255,255,.4) 50%, rgba(255,255,255,.0) 100%); transform: rotate(20deg); animation: sheen 3s infinite; }
+    .btn::after{
+      content:""; position:absolute; top:-100%; left:-50%; width:80%; height:300%;
+      background: linear-gradient(120deg, rgba(255,255,255,.0) 0%, rgba(255,255,255,.4) 50%, rgba(255,255,255,.0) 100%);
+      transform: rotate(20deg); animation: sheen 3s infinite;
+    }
     @keyframes sheen{ 0%{left:-80%} 60%{left:120%} 100%{left:120%} }
 
     .meta { margin:14px 0 4px; font-size:14px; opacity:.85; }
@@ -43,34 +60,64 @@
     .muted { opacity:.7; }
     .claim { margin:18px auto 0; width:100%; max-width:420px; display:block; }
 
-    .coin { position:fixed; width:26px; height:26px; border-radius:50%;
-      background: radial-gradient(circle at 30% 30%, #ffffff66, #ffffff00 60%), radial-gradient(circle at 55% 55%, #ffd84d, #ffc02a);
-      box-shadow: 0 0 14px rgba(255,194,42,.75), 0 0 30px rgba(255,194,42,.25); pointer-events:none; z-index:9999; transform:translate(-50%,-50%); will-change: transform, opacity; }
-    .pop { position:fixed; color:#ffe16f; font-weight:700; font-size:16px; pointer-events:none; z-index:9999;
-      text-shadow: 0 2px 8px rgba(0,0,0,.6); transform:translate(-50%,-50%) scale(0.8); opacity:0; animation: popUp .8s ease forwards; }
+    /* Bigger flying coin + pop */
+    .coin {
+      position:fixed; width:26px; height:26px; border-radius:50%;
+      background:
+        radial-gradient(circle at 30% 30%, #ffffff66, #ffffff00 60%),
+        radial-gradient(circle at 55% 55%, #ffd84d, #ffc02a);
+      box-shadow: 0 0 14px rgba(255,194,42,.75), 0 0 30px rgba(255,194,42,.25);
+      pointer-events:none; z-index:9999; transform:translate(-50%,-50%);
+      will-change: transform, opacity;
+    }
+    .pop {
+      position:fixed; color:#ffe16f; font-weight:700; font-size:16px; pointer-events:none; z-index:9999;
+      text-shadow: 0 2px 8px rgba(0,0,0,.6);
+      transform:translate(-50%,-50%) scale(0.8); opacity:0;
+      animation: popUp .8s ease forwards;
+    }
     @keyframes popUp { 0%{transform:translate(-50%,-50%) scale(.8); opacity:0;} 15%{opacity:1;} 100%{transform:translate(-50%,-120%) scale(1.15); opacity:0;} }
 
-    .thumb { position:fixed; font-size:28px; pointer-events:none; z-index:9999; text-shadow: 0 2px 8px rgba(0,0,0,.5);
-      transform:translate(-50%,-50%) scale(.7) rotate(-8deg); opacity:0; animation: thumbUp .9s ease-out forwards; }
+    /* 👍 thumbs-up animation */
+    .thumb {
+      position:fixed; font-size:28px; pointer-events:none; z-index:9999;
+      text-shadow: 0 2px 8px rgba(0,0,0,.5);
+      transform:translate(-50%,-50%) scale(.7) rotate(-8deg); opacity:0;
+      animation: thumbUp .9s ease-out forwards;
+    }
     @keyframes thumbUp { 0%{transform:translate(-50%,-20%) scale(.7) rotate(-8deg); opacity:0;} 15%{opacity:1;} 100%{transform:translate(-50%,-140%) scale(1.1) rotate(6deg); opacity:0;} }
 
-    .mute-toggle { position: fixed; right: 14px; bottom: 14px; z-index: 10000; width: 46px; height: 46px; border: 0; border-radius: 50%;
-      display:flex; align-items:center; justify-content:center; background: #1c1c1c; color:#ffd54a; box-shadow: 0 6px 18px rgba(0,0,0,.45), inset 0 0 0 2px rgba(255,213,74,.25); cursor:pointer; font-size:20px; }
+    /* Mute toggle (fixed, does not affect layout flow) */
+    .mute-toggle {
+      position: fixed; right: 14px; bottom: 14px; z-index: 10000;
+      width: 46px; height: 46px; border: 0; border-radius: 50%;
+      display:flex; align-items:center; justify-content:center;
+      background: #1c1c1c; color:#ffd54a; box-shadow: 0 6px 18px rgba(0,0,0,.45), inset 0 0 0 2px rgba(255,213,74,.25);
+      cursor:pointer; font-size:20px;
+    }
     .mute-toggle:active { transform: translateY(1px); }
   </style>
 </head>
 <body>
   <h1><span class="logo"></span> WEKS <b>Tap-To-Math</b></h1>
+
   <div id="balance" class="balance" data-v="0">💰 Balance: …</div>
 
+  <!-- actions row -->
   <div class="actions">
     <button id="inviteBtn" class="ico-btn"><span class="ico">🤝</span><span>Invite Friend</span></button>
     <button id="leaderBtn" class="ico-btn"><span class="ico">🏆</span><span>Leaderboard</span></button>
   </div>
 
+  <!-- Daily progress bar -->
   <div class="bar-wrap">
-    <div class="bar-label"><span>Daily progress</span><span id="remText">0 / 100</span></div>
-    <div class="bar"><div id="fill" class="fill"></div></div>
+    <div class="bar-label">
+      <span>Daily progress</span>
+      <span id="remText">0 / 100</span>
+    </div>
+    <div class="bar">
+      <div id="fill" class="fill"></div>
+    </div>
   </div>
 
   <div class="sub">Solve, stack answers, then <b>Claim</b> to earn coins. You can keep practicing after the cap, but extra answers won’t add coins.</div>
@@ -84,52 +131,98 @@
 
   <button id="claim" class="btn claim">CLAIM & CLOSE</button>
 
+  <!-- mute toggle -->
   <button id="muteBtn" class="mute-toggle" aria-label="Toggle sound">🔊</button>
 
   <script>
-    // ---- Telegram WebApp safe shim ----
+    /* ---- Telegram WebApp safe shim ---- */
     const tg = (() => {
       const wa = window?.Telegram?.WebApp;
       if (wa) return wa;
       return {
-        ready(){}, expand(){}, MainButton: { hide(){} },
+        ready(){}, expand(){},
+        MainButton: { hide(){} },
         HapticFeedback: { notificationOccurred(){} },
-        showAlert: (m)=>alert(m), close(){},
+        showAlert: (m)=>alert(m),
+        close(){},
         openTelegramLink: (u)=>window.open(u, '_blank'),
         openLink: (u)=>window.open(u, '_blank'),
-        sendData: ()=>{}, initData: "", initDataUnsafe: {}
+        sendData: ()=>{}, // no-op outside Telegram
+        initData: "",
+        initDataUnsafe: {}
       };
     })();
-    tg.ready(); tg.expand?.(); tg.MainButton?.hide?.();
+
+    tg.ready(); 
+    tg.expand?.();
+    tg.MainButton?.hide?.();
     const alertBox = (m) => { try { tg.showAlert(m); } catch { alert(m); } };
 
-    /* ---------- SOUND + unlock ---------- */
+    /* ---------- SOUND (Web Audio) + MUTE (robust) ---------- */
     let AC, masterGain, isMuted = false, audioUnlocked = false;
     try { isMuted = localStorage.getItem("weks_muted") === "1"; } catch {}
-    function ctx(){ if(!AC){ AC = new (window.AudioContext||window.webkitAudioContext)(); masterGain = AC.createGain(); masterGain.gain.value = isMuted?0:1; masterGain.connect(AC.destination);} return AC;}
-    function setMuted(m){ isMuted=m; if(masterGain) masterGain.gain.value = m?0:1; try{localStorage.setItem("weks_muted",m?"1":"0");}catch{}; document.getElementById('muteBtn').textContent = m?"🔇":"🔊"; }
-    function withAudio(fn){ try{const a=ctx(); const run=()=>{try{fn(a);}catch{}}; (a.state!=="running"?a.resume?.().then(run).catch(run):run()); }catch{} }
-    function unlock(){ try{const a=ctx(); if(audioUnlocked) return; a.resume?.(); const s=a.createBufferSource(); s.buffer=a.createBuffer(1,1,22050); const g=a.createGain(); g.gain.value=0; s.connect(g).connect(masterGain); s.start(0); s.onended=()=>{audioUnlocked=true;};}catch{} }
+
+    function ctx() {
+      if (!AC) {
+        AC = new (window.AudioContext || window.webkitAudioContext)();
+        masterGain = AC.createGain();
+        masterGain.gain.value = isMuted ? 0 : 1;
+        masterGain.connect(AC.destination);
+      }
+      return AC;
+    }
+    function setMuted(m) {
+      isMuted = m;
+      if (masterGain) masterGain.gain.value = isMuted ? 0 : 1;
+      try { localStorage.setItem("weks_muted", isMuted ? "1" : "0"); } catch {}
+      document.getElementById('muteBtn').textContent = isMuted ? "🔇" : "🔊";
+    }
+    function withAudio(synthFn){
+      try {
+        const a = ctx();
+        const run = () => { try { synthFn(a); } catch(e){ console.warn("audio synth error:", e); } };
+        if (a.state !== "running") { a.resume?.().then(run).catch(run); } else { run(); }
+      } catch(e){ /* ignore */ }
+    }
+    function unlock(){ try{ const a=ctx(); if(audioUnlocked) return; a.resume?.(); const s=a.createBufferSource(); s.buffer=a.createBuffer(1,1,22050); const g=a.createGain(); g.gain.value=0; s.connect(g).connect(masterGain); s.start(0); s.onended=()=>{audioUnlocked=true;}; }catch{} }
     ["pointerdown","touchend","mousedown","keydown"].forEach(ev=>window.addEventListener(ev,unlock,{passive:true}));
 
-    function applause(){ withAudio((a)=>{ const echo=a.createDelay(0.25); echo.delayTime.value=0.12; const eg=a.createGain(); eg.gain.value=0.22; echo.connect(eg).connect(masterGain);
-      const mix=a.createGain(); mix.gain.value=0.9; mix.connect(masterGain); mix.connect(echo);
-      const clap=(t=0,len=0.24,f=1800,gk=1)=>{ const src=a.createBufferSource(); const b=a.createBuffer(1,Math.floor(a.sampleRate*len),a.sampleRate); const d=b.getChannelData(0);
-        for(let i=0;i<d.length;i++){ const x=i/a.sampleRate; d[i]=(Math.random()*2-1)*Math.pow(1-x/len,2.5);} src.buffer=b;
-        const bp=a.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=f; bp.Q.value=1.0;
-        const hp=a.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=240;
-        const g=a.createGain(); g.gain.value=0.45*gk; src.connect(bp).connect(hp).connect(g).connect(mix); src.start(a.currentTime+t);
-        const tap=a.createOscillator(); tap.type='square'; tap.frequency.value=1900+Math.random()*400; const tg=a.createGain(); tg.gain.value=0.26*gk; tap.connect(tg).connect(mix); tap.start(a.currentTime+t); tap.stop(a.currentTime+t+0.035); tg.gain.setTargetAtTime(0.0001,a.currentTime+t+0.012,0.012);
-      };
-      clap(0.00,0.22,1750,1.00); clap(0.07,0.22,1600,0.9); clap(0.14,0.22,2050,0.95); clap(0.24,0.28,1720,1.1); clap(0.35,0.22,1880,0.9);
-      const who=a.createOscillator(); who.type='triangle'; const wg=a.createGain(); wg.gain.value=0.0; who.connect(wg).connect(mix); const t0=a.currentTime+0.05;
-      who.frequency.setValueAtTime(360,t0); who.frequency.exponentialRampToValueAtTime(820,t0+0.4); who.start(t0); who.stop(t0+0.55);
-      wg.gain.setValueAtTime(0.0,t0); wg.gain.linearRampToValueAtTime(0.24,t0+0.14); wg.gain.exponentialRampToValueAtTime(0.0001,t0+0.55);
-      const air=a.createBufferSource(); const L=0.55; const ab=a.createBuffer(1,Math.floor(a.sampleRate*L),a.sampleRate); const ad=ab.getChannelData(0);
-      for(let i=0;i<ad.length;i++){ const x=(Math.random()*2-1)*0.65; const f=i/ad.length; ad[i]=x*(1-Math.pow(1-f,2.1));}
-      air.buffer=ab; const low=a.createBiquadFilter(); low.type='lowpass'; low.frequency.value=1900; const ag=a.createGain(); ag.gain.value=0.22; air.connect(low).connect(ag).connect(mix); air.start(t0-0.02);
-    });}
-    function soundWrong(){ withAudio((a)=>{ const o=a.createOscillator(), g=a.createGain(); o.type='sawtooth'; o.frequency.value=160; g.gain.value=0.16; o.connect(g).connect(masterGain); o.start(); setTimeout(()=>{try{g.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+0.08); o.stop(a.currentTime+0.1);}catch{}},220); }); }
+    // applause + cheer
+    function applause(){
+      withAudio((a)=>{
+        const echoDelay = a.createDelay(0.25); echoDelay.delayTime.value = 0.12;
+        const echoGain = a.createGain(); echoGain.gain.value = 0.22; echoDelay.connect(echoGain).connect(masterGain);
+        const mix = a.createGain(); mix.gain.value = 0.9; mix.connect(masterGain); mix.connect(echoDelay);
+
+        const clap=(t=0,len=0.24,f=1800,gk=1)=>{ const src=a.createBufferSource(); const b=a.createBuffer(1,Math.floor(a.sampleRate*len),a.sampleRate); const d=b.getChannelData(0);
+          for(let i=0;i<d.length;i++){ const x=i/a.sampleRate; d[i]=(Math.random()*2-1)*Math.pow(1-x/len,2.5);} src.buffer=b;
+          const bp=a.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=f; bp.Q.value=1.0;
+          const hp=a.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=240;
+          const g=a.createGain(); g.gain.value=0.45*gk; src.connect(bp).connect(hp).connect(g).connect(mix); src.start(a.currentTime+t);
+          const tap=a.createOscillator(); tap.type='square'; tap.frequency.value=1900+Math.random()*400; const tg=a.createGain(); tg.gain.value=0.26*gk; tap.connect(tg).connect(mix); tap.start(a.currentTime+t); tap.stop(a.currentTime+t+0.035); tg.gain.setTargetAtTime(0.0001,a.currentTime+t+0.012,0.012);
+        };
+        clap(0.00,0.22,1750,1.00); clap(0.07,0.22,1600,0.9); clap(0.14,0.22,2050,0.95); clap(0.24,0.28,1720,1.1); clap(0.35,0.22,1880,0.9);
+
+        const who = a.createOscillator(); who.type = 'triangle';
+        const wg = a.createGain(); wg.gain.value = 0.0; who.connect(wg).connect(mix);
+        const t0 = a.currentTime + 0.05;
+        who.frequency.setValueAtTime(360, t0);
+        who.frequency.exponentialRampToValueAtTime(820, t0 + 0.4);
+        who.start(t0); who.stop(t0 + 0.55);
+        wg.gain.setValueAtTime(0.0, t0);
+        wg.gain.linearRampToValueAtTime(0.24, t0 + 0.14);
+        wg.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.55);
+
+        const air=a.createBufferSource(); const L=0.55; const ab=a.createBuffer(1,Math.floor(a.sampleRate*L),a.sampleRate); const ad=ab.getChannelData(0);
+        for(let i=0;i<ad.length;i++){ const x=(Math.random()*2-1)*0.65; const f=i/ad.length; ad[i]=x*(1-Math.pow(1-f,2.1)); }
+        air.buffer=ab; const low=a.createBiquadFilter(); low.type='lowpass'; low.frequency.value=1900; const ag=a.createGain(); ag.gain.value=0.22; air.connect(low).connect(ag).connect(mix); air.start(t0-0.02);
+      });
+    }
+    function soundWrong(){
+      withAudio((a)=>{ const o=a.createOscillator(), g=a.createGain(); o.type='sawtooth'; o.frequency.value=160; g.gain.value=0.16;
+        o.connect(g).connect(masterGain); o.start(); setTimeout(()=>{try{g.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+0.08); o.stop(a.currentTime+0.1);}catch{}},220);
+      });
+    }
 
     /* ---------- Progress ---------- */
     const STORAGE_KEY = "weks_progress_v1";
@@ -138,42 +231,108 @@
     function saveProgress(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(progress)); }
     function resetProgressForToday(){ progress={day:todayStr(),correct:0,wrong:0}; saveProgress(); updateUI(); pendingBalance=0; updateBalanceDisplay(true); }
 
-    let progress = loadProgress(), current=null;
-    let serverBalance=0, pendingBalance=0, displayedBalance=0;
-    let serverTodayUsed=0; const DAILY_CAP=100;
+    let progress = loadProgress(), current = null;
+    let serverBalance = 0, pendingBalance = 0, displayedBalance = 0;
+    let serverTodayUsed = 0; const DAILY_CAP = 100;
 
     const usedLocal = () => progress.correct + progress.wrong;
     const canEarnAnother = () => (serverTodayUsed + usedLocal()) < DAILY_CAP;
 
-    function animateCoins(from,to,dur=600){ const el=document.getElementById("balance"); const start=performance.now();
-      (function tick(t){ const p=Math.min(1,(t-start)/dur); const eased=1-Math.pow(1-p,3); const val=Math.round(from+(to-from)*eased); el.textContent=`💰 Balance: ${val}`; if(p<1) requestAnimationFrame(tick); else {displayedBalance=to;} })(start);
+    function animateCoins(from, to, dur=600){
+      const el = document.getElementById("balance"); const start = performance.now();
+      (function tick(t){ const p=Math.min(1,(t-start)/dur); const eased=1-Math.pow(1-p,3); const val=Math.round(from+(to-from)*eased); el.textContent=`💰 Balance: ${val}`; if(p<1) requestAnimationFrame(tick); else { displayedBalance = to; } })(start);
     }
-    function updateBalanceDisplay(force=false){ const next=serverBalance + pendingBalance; if(force){ displayedBalance=next; document.getElementById("balance").textContent=`💰 Balance: ${next}`; return;} animateCoins(displayedBalance,next); }
+    function updateBalanceDisplay(force=false){
+      const next = serverBalance + pendingBalance;
+      if(force){ displayedBalance = next; document.getElementById("balance").textContent = `💰 Balance: ${next}`; return; }
+      animateCoins(displayedBalance, next);
+    }
 
-    function updateUI(){ document.getElementById("c").textContent=progress.correct; document.getElementById("w").textContent=progress.wrong;
-      const used=Math.min(DAILY_CAP, serverTodayUsed + usedLocal()); document.getElementById("fill").style.width=`${(used/DAILY_CAP)*100}%`; document.getElementById("remText").textContent=`${used} / ${DAILY_CAP}`; }
-    function flash(text, good){ const f=document.getElementById("flash"); f.textContent=text; f.className="meta "+(good===true?"ok":good===false?"bad":""); }
+    function updateUI(){
+      document.getElementById("c").textContent = progress.correct;
+      document.getElementById("w").textContent = progress.wrong;
+      const used = Math.min(DAILY_CAP, serverTodayUsed + usedLocal());
+      document.getElementById("fill").style.width = `${(used/DAILY_CAP)*100}%`;
+      document.getElementById("remText").textContent = `${used} / ${DAILY_CAP}`;
+    }
+    function flash(text, good){
+      const f = document.getElementById("flash");
+      f.textContent = text;
+      f.className = "meta " + (good===true?"ok":good===false?"bad":"");
+    }
 
     function randint(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
     function newQuestion(){
-      const ops=["+","-","×","÷"]; const op=ops[randint(0,ops.length-1)];
-      let a=randint(2,25), b=randint(2,25), ans=0;
-      if(op==="+"){ans=a+b;} else if(op==="-"){ if(b>a){[a,b]=[b,a];} ans=a-b; } else if(op==="×"){ ans=a*b; } else { ans=randint(2,12); b=randint(2,12); a=ans*b; }
-      current={text:`${a} ${op} ${b} = ?`, ans}; document.getElementById("q").textContent=current.text;
-      const opts=new Set([ans]); while(opts.size<4){ const d=randint(1,10), s=Math.random()<0.5?-1:1; opts.add(ans + s*d); }
-      const shuffled=[...opts].sort(()=>Math.random()-0.5);
-      const box=document.getElementById("answers"); box.innerHTML=""; shuffled.forEach(v=>{ const btn=document.createElement("button"); btn.className="btn"; btn.textContent=v; btn.onclick=(e)=>choose(v, e.currentTarget); box.appendChild(btn); });
+      const ops = ["+","-","×","÷"]; const op = ops[randint(0,ops.length-1)];
+      let a = randint(2,25), b = randint(2,25), ans=0;
+      if(op==="+"){ ans = a+b; } else if(op==="-"){ if(b>a){ [a,b]=[b,a]; } ans=a-b; }
+      else if(op==="×"){ ans=a*b; } else { ans = randint(2,12); b = randint(2,12); a = ans*b; }
+      current = { text: `${a} ${op} ${b} = ?`, ans };
+      document.getElementById("q").textContent = current.text;
+
+      const opts = new Set([ans]);
+      while(opts.size<4){ const delta = randint(1,10), sign = Math.random()<0.5?-1:1; opts.add(ans + sign*delta); }
+      const shuffled = Array.from(opts).sort(()=>Math.random()-0.5);
+
+      const box = document.getElementById("answers");
+      box.innerHTML = "";
+      shuffled.forEach(v=>{
+        const btn = document.createElement("button");
+        btn.className = "btn";
+        btn.textContent = v;
+        btn.onclick = (e)=>choose(v, e.currentTarget);
+        box.appendChild(btn);
+      });
       flash("");
     }
 
-    function thumbs(btnEl){ try{ const r=btnEl.getBoundingClientRect(); const t=document.createElement('div'); t.className='thumb'; t.textContent='👍'; t.style.left=`${r.left + r.width/2}px`; t.style.top=`${r.top + r.height/2}px`; document.body.appendChild(t); setTimeout(()=>t.remove(),950);}catch{} }
-    function flyCoin(fromEl,toEl){ try{ const s=fromEl.getBoundingClientRect(); const t=toEl.getBoundingClientRect(); const coin=document.createElement('div'); coin.className='coin';
-      coin.style.left=`${s.left + s.width/2}px`; coin.style.top=`${s.top + s.height/2}px`; document.body.appendChild(coin);
-      const dx=(t.left + t.width/2) - (s.left + s.width/2); const dy=(t.top + 8) - (s.top + s.height/2); const start=performance.now(), dur=620; const arc=Math.min(120, Math.max(60, Math.abs(dx)*0.2));
-      (function anim(ts){ const p=Math.min(1,(ts-start)/dur); const ease=1-Math.pow(1-p,3); const x=dx*ease; const y=dy*ease - arc*Math.sin(Math.PI*ease); const scale=1-0.25*ease; const fade=1-0.15*ease;
-        coin.style.transform=`translate(${x}px, ${y}px) scale(${scale})`; coin.style.opacity=String(fade); if(p<1) requestAnimationFrame(anim); else coin.remove(); })(start);
-      const pop=document.createElement('div'); pop.className='pop'; pop.textContent='+10'; pop.style.left=`${s.left + s.width/2}px`; pop.style.top=`${s.top + s.height/2}px`; document.body.appendChild(pop); setTimeout(()=>pop.remove(),900);
-    }catch{} }
+    function thumbs(btnEl){
+      try{
+        const r = btnEl.getBoundingClientRect();
+        const t = document.createElement('div');
+        t.className = 'thumb';
+        t.textContent = '👍';
+        t.style.left = `${r.left + r.width/2}px`;
+        t.style.top  = `${r.top + r.height/2}px`;
+        document.body.appendChild(t);
+        setTimeout(()=>t.remove(), 950);
+      }catch{}
+    }
+    function flyCoin(fromEl, toEl){
+      try{
+        const s = fromEl.getBoundingClientRect();
+        const t = toEl.getBoundingClientRect();
+        const coin = document.createElement('div');
+        coin.className = 'coin';
+        coin.style.left = `${s.left + s.width/2}px`;
+        coin.style.top  = `${s.top  + s.height/2}px`;
+        document.body.appendChild(coin);
+
+        const dx = (t.left + t.width/2) - (s.left + s.width/2);
+        const dy = (t.top  + 8) - (s.top + s.height/2);
+        const start = performance.now(), dur = 620;
+        const arc = Math.min(120, Math.max(60, Math.abs(dx)*0.2));
+        (function anim(ts){
+          const p = Math.min(1, (ts-start)/dur);
+          const ease = 1 - Math.pow(1-p,3);
+          const x = dx*ease;
+          const y = dy*ease - arc*Math.sin(Math.PI*ease);
+          const scale = 1 - 0.25*ease;
+          const fade = 1 - 0.15*ease;
+          coin.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+          coin.style.opacity = String(fade);
+          if(p<1) requestAnimationFrame(anim); else coin.remove();
+        })(start);
+
+        const pop = document.createElement('div');
+        pop.className = 'pop';
+        pop.textContent = '+10';
+        pop.style.left = `${s.left + s.width/2}px`;
+        pop.style.top  = `${s.top + s.height/2}px`;
+        document.body.appendChild(pop);
+        setTimeout(()=>pop.remove(), 900);
+      }catch{}
+    }
 
     function choose(v, btnEl){
       if(!current) return;
@@ -186,10 +345,18 @@
         tg.HapticFeedback?.notificationOccurred?.("success");
         applause(); thumbs(btnEl); flyCoin(btnEl, document.getElementById("balance"));
       } else {
-        progress.wrong++; flash(`Oops! Correct was ${current.ans}`, false);
-        tg.HapticFeedback?.notificationOccurred?.("error"); soundWrong();
-        const r=btnEl.getBoundingClientRect(); const pop=document.createElement('div'); pop.className='pop'; pop.style.color='#ff7a7a'; pop.textContent='✖';
-        pop.style.left=`${r.left + r.width/2}px`; pop.style.top=`${r.top + r.height/2}px`; document.body.appendChild(pop); setTimeout(()=>pop.remove(),900);
+        progress.wrong++;
+        flash(`Oops! Correct was ${current.ans}`, false);
+        tg.HapticFeedback?.notificationOccurred?.("error");
+        soundWrong();
+        const r = btnEl.getBoundingClientRect();
+        const pop = document.createElement('div');
+        pop.className = 'pop'; pop.style.color = '#ff7a7a';
+        pop.textContent = '✖';
+        pop.style.left = `${r.left + r.width/2}px`;
+        pop.style.top  = `${r.top + r.height/2}px`;
+        document.body.appendChild(pop);
+        setTimeout(()=>pop.remove(), 900);
       }
       saveProgress(); updateUI(); updateBalanceDisplay(); newQuestion();
     }
@@ -197,64 +364,90 @@
     async function fetchBalanceAndToday() {
       try {
         const resp = await fetch("https://weks-bot.vercel.app/api/balance", {
-          method: "POST", headers: { "Content-Type": "application/json" },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ initData: tg.initData || "" })
         });
         const data = await resp.json();
         if (data.ok) {
-          serverBalance = data.balance; serverTodayUsed = data.todayUsed || 0;
-          const remaining = Math.max(0, DAILY_CAP - serverTodayUsed);
-          const creditable = Math.min(progress.correct, remaining);
-          pendingBalance = creditable * 10;
+          serverBalance   = data.balance;
+          serverTodayUsed = data.todayUsed || 0;
+
+          const remainingFromServer = Math.max(0, DAILY_CAP - serverTodayUsed);
+          const creditableCorrect = Math.min(progress.correct, remainingFromServer);
+          pendingBalance  = creditableCorrect * 10;
+
           displayedBalance = serverBalance;
           document.getElementById("balance").textContent = `💰 Balance: ${displayedBalance}`;
           updateBalanceDisplay(); updateUI();
-        } else { document.getElementById("balance").textContent = "💰 Balance: error"; }
-      } catch { document.getElementById("balance").textContent = "💰 Balance: error"; }
+        } else {
+          document.getElementById("balance").textContent = "💰 Balance: error";
+        }
+      } catch {
+        document.getElementById("balance").textContent = "💰 Balance: error";
+      }
     }
 
     async function claim() {
       try {
         const resp = await fetch("https://weks-bot.vercel.app/api/claim", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ initData: tg.initData || "", correct: progress.correct, wrong: progress.wrong })
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            initData: tg.initData || "",
+            correct: progress.correct,
+            wrong: progress.wrong
+          })
         });
         const data = await resp.json();
         if (!data.ok) { alertBox("Claim failed: " + (data.error || "Unknown error")); return; }
 
         if (data.message === "DAILY_CAP_REACHED") {
-          alertBox(`🎉 You reached the daily cap of ${data.dailyCap}.\nKeep practicing! Answers won’t add coins until tomorrow.\n\nBalance: ${data.balance}`);
+          alertBox(
+            `🎉 You reached the daily cap of ${data.dailyCap}.\n` +
+            `Keep practicing! Answers won’t add coins until tomorrow.\n\n` +
+            `Balance: ${data.balance}`
+          );
         } else {
-          alertBox(`✅ Claimed ${data.creditedCorrect} correct (+${data.coins} coins).\n❌ Wrong: ${data.creditedWrong}\nToday used: ${data.today}/${data.dailyCap}\nBalance: ${data.balance}`);
-          for(let i=0;i<4;i++){ setTimeout(()=>{ const fake={ getBoundingClientRect:()=>({ left: innerWidth*(.2+.6*Math.random()), top: innerHeight-40, width:0, height:0 }) }; flyCoin(fake, document.getElementById("balance")); }, i*120); }
+          alertBox(
+            `✅ Claimed ${data.creditedCorrect} correct (+${data.coins} coins).\n` +
+            `❌ Wrong: ${data.creditedWrong}\n` +
+            `Today used: ${data.today}/${data.dailyCap}\n` +
+            `Balance: ${data.balance}`
+          );
+          for(let i=0;i<4;i++){
+            setTimeout(()=>{
+              const fake = { getBoundingClientRect: ()=>({ left: innerWidth*(.2+.6*Math.random()), top: innerHeight-40, width:0, height:0 }) };
+              flyCoin(fake, document.getElementById("balance"));
+            }, i*120);
+          }
         }
 
-        serverBalance = data.balance; serverTodayUsed = data.today;
-        resetProgressForToday(); updateUI(); updateBalanceDisplay(true);
-        setTimeout(()=>{ try{ tg.close?.(); }catch{} }, 150);
-      } catch (e) { console.error(e); alertBox("Could not send claim. Check your internet and try again."); }
+        serverBalance   = data.balance;
+        serverTodayUsed = data.today;
+        resetProgressForToday();
+        updateUI();
+        updateBalanceDisplay(true);
+
+        setTimeout(()=>{ try { tg.close?.(); } catch {} }, 150);
+      } catch (e) {
+        console.error(e);
+        alertBox("Could not send claim. Check your internet and try again.");
+      }
     }
     document.getElementById("claim").onclick = claim;
 
     /* ---------- Invite / Leaderboard ---------- */
     const inviteBtn = document.getElementById('inviteBtn');
     const leaderBtn = document.getElementById('leaderBtn');
-    const botUsername = "WeksMathGameBot"; // change if different
+    const botUsername = "WeksMathGameBot"; // <-- change if different
 
+    // Robust invite: deep-link auto-sends /start invite_ref_<uid> so your bot can reply instantly
     inviteBtn.onclick = () => {
       const uid = tg.initDataUnsafe?.user?.id;
-      const refLink = `https://t.me/${botUsername}${uid ? `?start=ref_${uid}` : ""}`;
-      let sent = false;
-      try { tg.sendData(JSON.stringify({ type: "invite", link: refLink })); sent = true; } catch {}
-      if (sent) {
-        alertBox("📨 I sent the invite to our chat. You can forward it anywhere!");
-        setTimeout(()=>{ try{ tg.close?.(); }catch{} }, 150); // return user to chat so they see it
-      } else {
-        // Share fallback (works even without bot handler)
-        const text = `🕹 Invite friends and earn +2,000 each!\nYour link: ${refLink}`;
-        const share = `https://t.me/share/url?url=${encodeURIComponent(refLink)}&text=${encodeURIComponent(text)}`;
-        try { tg.openTelegramLink(share); } catch { window.open(share, '_blank'); }
-      }
+      const startParam = uid ? `invite_ref_${uid}` : "invite";
+      const url = `https://t.me/${botUsername}?start=${startParam}`;
+      try { tg.openTelegramLink(url); } catch { window.open(url, "_blank"); }
     };
 
     leaderBtn.onclick = () => {
@@ -269,7 +462,9 @@
     document.getElementById('muteBtn').textContent = isMuted ? "🔇" : "🔊";
 
     /* ---------- Init ---------- */
-    fetchBalanceAndToday(); newQuestion(); updateUI();
+    fetchBalanceAndToday();
+    newQuestion();
+    updateUI();
   </script>
 </body>
 </html>
