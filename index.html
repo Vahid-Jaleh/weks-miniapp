@@ -66,6 +66,19 @@
       15% { opacity:1; }
       100% { transform:translate(-50%,-120%) scale(1.15); opacity:0; }
     }
+
+    /* 👍 thumbs-up animation */
+    .thumb {
+      position:fixed; font-size:28px; pointer-events:none; z-index:9999;
+      text-shadow: 0 2px 8px rgba(0,0,0,.5);
+      transform:translate(-50%,-50%) scale(.7) rotate(-8deg); opacity:0;
+      animation: thumbUp .9s ease-out forwards;
+    }
+    @keyframes thumbUp {
+      0%   { transform:translate(-50%,-20%) scale(.7) rotate(-8deg); opacity:0; }
+      15%  { opacity:1; }
+      100% { transform:translate(-50%,-140%) scale(1.1) rotate(6deg); opacity:0; }
+    }
   </style>
 </head>
 <body>
@@ -103,24 +116,36 @@
     /* ---------- SOUND (Web Audio) ---------- */
     let AC;
     function ctx(){ if(!AC){ AC = new (window.AudioContext||window.webkitAudioContext)(); } return AC; }
-    function tone(freq=440, dur=120, type='sine', vol=0.2){
+    // Applause-like burst using filtered noise with quick repeats
+    function applause(){
       const a = ctx();
-      const o = a.createOscillator();
-      const g = a.createGain();
-      o.type = type; o.frequency.value = freq;
-      g.gain.value = vol;
-      o.connect(g).connect(a.destination);
-      o.start();
-      setTimeout(()=>{ g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + 0.08); }, dur*0.6);
-      setTimeout(()=>{ o.stop(); }, dur);
-    }
-    function soundCorrect(){
-      tone(880,110,'triangle',0.18);
-      setTimeout(()=>tone(1320,110,'triangle',0.16), 90);
+      const makeClap = (when=0, len=0.25, freq=1800)=>{
+        const n = a.createBufferSource();
+        const buf = a.createBuffer(1, a.sampleRate*len, a.sampleRate);
+        const d = buf.getChannelData(0);
+        for(let i=0;i<d.length;i++){
+          const t = i/a.sampleRate;
+          // noisy burst with fast decay
+          d[i] = (Math.random()*2-1) * Math.pow(1 - t/len, 2.2);
+        }
+        n.buffer = buf;
+        const bp = a.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=freq; bp.Q.value=0.6;
+        const g  = a.createGain(); g.gain.value = 0.28;
+        n.connect(bp).connect(g).connect(a.destination);
+        n.start(a.currentTime + when);
+      };
+      // a few quick claps staggered -> applause feel
+      makeClap(0.00, 0.22, 1800);
+      makeClap(0.08, 0.22, 1600);
+      makeClap(0.16, 0.22, 2000);
+      makeClap(0.28, 0.28, 1700);
     }
     function soundWrong(){
-      tone(150,250,'sawtooth',0.14);
-      setTimeout(()=>tone(120,200,'sawtooth',0.12), 60);
+      const a = ctx();
+      const o = a.createOscillator(), g=a.createGain();
+      o.type='sawtooth'; o.frequency.value=160; g.gain.value=0.14;
+      o.connect(g).connect(a.destination); o.start();
+      setTimeout(()=>{ g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime+0.08); o.stop(a.currentTime+0.1); }, 220);
     }
 
     /* ---------- Flying coin & +10 pop ---------- */
@@ -151,6 +176,18 @@
       pop.style.top  = `${s.top + s.height/2}px`;
       document.body.appendChild(pop);
       setTimeout(()=>pop.remove(), 900);
+    }
+
+    /* ---------- Thumbs-up animation ---------- */
+    function thumbs(btnEl){
+      const r = btnEl.getBoundingClientRect();
+      const t = document.createElement('div');
+      t.className = 'thumb';
+      t.textContent = '👍';
+      t.style.left = `${r.left + r.width/2}px`;
+      t.style.top  = `${r.top + r.height/2}px`;
+      document.body.appendChild(t);
+      setTimeout(()=>t.remove(), 950);
     }
 
     /* ---------- Persistent local progress ---------- */
@@ -259,14 +296,15 @@
         pendingBalance += 10; // instant local reward
         flash("Correct! +10 coins (pending) ✅", true);
         tg.HapticFeedback.notificationOccurred("success");
-        soundCorrect();
+        applause();                    // 👏 applause sound
+        thumbs(btnEl);                 // 👍 thumbs-up at the button
         flyCoin(btnEl, document.getElementById("balance")); // ✨ coin to balance
       } else {
         progress.wrong++;
         flash(`Oops! Correct was ${current.ans}`, false);
         tg.HapticFeedback.notificationOccurred("error");
-        soundWrong();
-        // red pop
+        soundWrong();                  // buzzer
+        // red pop at wrong
         const r = btnEl.getBoundingClientRect();
         const pop = document.createElement('div');
         pop.className = 'pop'; pop.style.color = '#ff7a7a';
@@ -295,7 +333,7 @@
           serverBalance   = data.balance;
           serverTodayUsed = data.todayUsed || 0;
           pendingBalance  = progress.correct * 10; // restore pending
-          displayedBalance = serverBalance;        // base for animations
+          displayedBalance = serverBalance;        // base
           document.getElementById("balance").textContent = `💰 Balance: ${displayedBalance}`;
           updateBalanceDisplay(); // animate to server + pending
           updateBar();
@@ -338,7 +376,7 @@
             `Today used: ${data.today}/${data.dailyCap}\n` +
             `Balance: ${data.balance}`
           );
-          // celebratory "coin shower": fly a few coins from screen bottom
+          // coin shower to balance
           for(let i=0;i<4;i++){
             setTimeout(()=>{
               const fake = { getBoundingClientRect: ()=>({ left: innerWidth*(.2+.6*Math.random()), top: innerHeight-40, width:0, height:0 }) };
