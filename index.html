@@ -46,7 +46,6 @@
 
     const alertBox = (m) => { try { tg.showAlert(m); } catch { alert(m); } };
 
-    // ---------- persistence ----------
     const STORAGE_KEY = "weks_progress_v1";
     const todayStr = () => new Date().toISOString().slice(0,10);
 
@@ -63,12 +62,16 @@
     function resetProgressForToday() {
       progress = { day: todayStr(), correct: 0, wrong: 0 };
       saveProgress(); updateUI();
+      pendingBalance = 0;
+      updateBalanceDisplay();
     }
 
     let progress = loadProgress();
+    let current = null;
+    let serverBalance = 0;   // from KV
+    let pendingBalance = 0;  // local
 
     // ---------- quiz ----------
-    let current = null;
     function randint(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
     function newQuestion(){
       const ops = ["+","-","×","÷"];
@@ -109,17 +112,21 @@
       document.getElementById("c").textContent = progress.correct;
       document.getElementById("w").textContent = progress.wrong;
     }
+    function updateBalanceDisplay(){
+      document.getElementById("balance").textContent = `💰 Balance: ${serverBalance + pendingBalance}`;
+    }
 
     function choose(v){
       if(!current) return;
       if(Number(v)===current.ans){
-        progress.correct++; flash("Correct! Ready to claim later ✅", true);
+        progress.correct++; flash("Correct! +10 coins (pending)", true);
         tg.HapticFeedback.notificationOccurred("success");
+        pendingBalance += 10; // immediate visual reward
       } else {
         progress.wrong++; flash(`Oops! Correct was ${current.ans}`, false);
         tg.HapticFeedback.notificationOccurred("error");
       }
-      saveProgress(); updateUI(); newQuestion();
+      saveProgress(); updateUI(); updateBalanceDisplay(); newQuestion();
     }
 
     // ---------- balance fetch ----------
@@ -132,7 +139,9 @@
         });
         const data = await resp.json();
         if (data.ok) {
-          document.getElementById("balance").textContent = `💰 Balance: ${data.balance}`;
+          serverBalance = data.balance;
+          pendingBalance = progress.correct * 10; // restore local pending
+          updateBalanceDisplay();
         } else {
           document.getElementById("balance").textContent = "💰 Balance: error";
         }
@@ -159,7 +168,8 @@
           : `✅ Claimed ${data.creditedQ} answers (+${data.coins} coins).`;
         alertBox(`${msg}\nToday: ${data.today}/${data.dailyCap}\nBalance: ${data.balance}`);
 
-        // Reset local progress + refresh balance
+        // Reset local
+        serverBalance = data.balance;
         resetProgressForToday();
         fetchBalance();
 
