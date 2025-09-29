@@ -6,36 +6,49 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
+    :root { color-scheme: light dark; }
     body { font-family: Arial, sans-serif; background:#111; color:#fff; margin:0; padding:24px; text-align:center; }
-    h1 { margin: 0 0 8px; }
-    .sub { opacity:.8; margin-bottom:20px; }
-    .card { margin:0 auto; max-width:420px; background:#1c1c1c; padding:20px; border-radius:14px; box-shadow:0 4px 16px rgba(0,0,0,.5); }
-    .q { font-size:28px; margin:18px 0; }
+    h1 { margin: 0 0 8px; display:flex; align-items:center; gap:10px; justify-content:center; }
+    .logo { width:28px; height:28px; border-radius:6px; background:#ffd54a; display:inline-block; }
+    .sub { opacity:.85; margin-bottom:20px; }
+    .card { margin:0 auto; max-width:420px; background:#1c1c1c; padding:20px; border-radius:14px; box-shadow:0 6px 22px rgba(0,0,0,.5); }
+    .q { font-size:34px; margin:18px 0; }
     .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-    button { padding:14px 10px; border:0; border-radius:12px; font-size:18px; cursor:pointer; background:#ffd54a; }
-    .meta { margin:14px 0 4px; font-size:14px; opacity:.8; }
+    .btn { padding:14px 10px; border:0; border-radius:12px; font-size:18px; cursor:pointer; background:#ffd54a; color:#111; }
+    .btn:active { transform: translateY(1px); }
+    .meta { margin:14px 0 4px; font-size:14px; opacity:.85; }
     .ok { color:#6ee78c; }
     .bad { color:#ff7a7a; }
+    .muted { opacity:.7; }
+    .claim { margin:18px auto 0; width:100%; max-width:420px; display:block; }
   </style>
 </head>
 <body>
-  <h1>🎰 WEKS Tap-To-Math</h1>
+  <h1><span class="logo"></span> WEKS <b>Tap-To-Math</b></h1>
   <div class="sub">Solve, stack correct answers, then <b>Claim</b> to get coins.</div>
 
   <div class="card">
-    <div id="status" class="meta">Correct: <span id="c">0</span> • Wrong: <span id="w">0</span></div>
+    <div class="meta">Correct: <span id="c">0</span> • Wrong: <span id="w">0</span></div>
     <div id="q" class="q">Loading…</div>
     <div class="grid" id="answers"></div>
-    <div class="meta">Daily cap: 100 Q → +10 coins each</div>
+    <div class="meta muted">Daily cap: 100 Q → +10 coins each</div>
     <div id="flash" class="meta"></div>
   </div>
+
+  <!-- In-page fallback claim button -->
+  <button id="claim" class="btn claim">CLAIM & CLOSE</button>
 
   <script>
     const tg = window.Telegram.WebApp;
     tg.ready();
     tg.expand();
-    tg.MainButton.setText("Claim & Close");
+
+    // Native MainButton setup
+    tg.MainButton.setText("CLAIM & CLOSE");
     tg.MainButton.show();
+
+    // Small helper
+    const toast = (m) => { try { tg.showToast(m); } catch {} };
 
     let correct = 0, wrong = 0, current = null;
 
@@ -47,9 +60,9 @@
       let a = randint(2,25), b = randint(2,25), ans=0;
 
       if(op==="+"){ ans = a+b; }
-      if(op==="-"){ if(b>a){ [a,b]=[b,a]; } ans=a-b; }
-      if(op==="×"){ ans=a*b; }
-      if(op==="÷"){
+      else if(op==="-"){ if(b>a){ [a,b]=[b,a]; } ans=a-b; }
+      else if(op==="×"){ ans=a*b; }
+      else if(op==="÷"){
         ans = randint(2,12);
         b = randint(2,12);
         a = ans*b;
@@ -70,6 +83,7 @@
       box.innerHTML = "";
       shuffled.forEach(v=>{
         const btn = document.createElement("button");
+        btn.className = "btn";
         btn.textContent = v;
         btn.onclick = ()=>choose(v);
         box.appendChild(btn);
@@ -87,20 +101,45 @@
       if(!current) return;
       if(Number(v)===current.ans){
         correct++; flash("Correct! Ready to claim later ✅", true);
+        tg.HapticFeedback.notificationOccurred("success");
       } else {
         wrong++; flash(`Oops! Correct was ${current.ans}`, false);
+        tg.HapticFeedback.notificationOccurred("error");
       }
       document.getElementById("c").textContent = correct;
       document.getElementById("w").textContent = wrong;
       newQuestion();
-      tg.HapticFeedback.notificationOccurred("success");
     }
 
-    tg.MainButton.onClick(()=>{
-      // Send one claim with total correct; Telegram will close the webview.
+    async function doClaim() {
       const payload = JSON.stringify({ t:"claim", correct });
-      tg.sendData(payload);
-    });
+      toast("Sending claim…");
+
+      try {
+        // Try sending immediately (works if write access already granted)
+        tg.sendData(payload);
+
+        // For clients requiring explicit permission:
+        if (typeof tg.requestWriteAccess === "function") {
+          const granted = await tg.requestWriteAccess().catch(() => false);
+          if (!granted) {
+            tg.showAlert("Please allow write access so we can credit your coins.");
+            return;
+          }
+          tg.sendData(payload); // send again after grant
+        }
+
+        // Close after a short delay to ensure send queues
+        setTimeout(() => { try { tg.close(); } catch {} }, 150);
+      } catch (e) {
+        console.error(e);
+        try { tg.showAlert("Could not send claim. Please try again."); } catch {}
+      }
+    }
+
+    // Wire both buttons
+    tg.MainButton.onClick(doClaim);
+    document.getElementById("claim").onclick = doClaim;
 
     newQuestion();
   </script>
