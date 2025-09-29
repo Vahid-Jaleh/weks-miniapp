@@ -72,4 +72,413 @@
     }
     .pop {
       position:fixed; color:#ffe16f; font-weight:700; font-size:16px; pointer-events:none; z-index:9999;
-      text-shadow: 0 2px 8px rgba(0
+      text-shadow: 0 2px 8px rgba(0,0,0,.6);
+      transform:translate(-50%,-50%) scale(0.8); opacity:0;
+      animation: popUp .8s ease forwards;
+    }
+    @keyframes popUp {
+      0% { transform:translate(-50%,-50%) scale(.8); opacity:0; }
+      15% { opacity:1; }
+      100% { transform:translate(-50%,-120%) scale(1.15); opacity:0; }
+    }
+
+    /* 👍 thumbs-up animation */
+    .thumb {
+      position:fixed; font-size:28px; pointer-events:none; z-index:9999;
+      text-shadow: 0 2px 8px rgba(0,0,0,.5);
+      transform:translate(-50%,-50%) scale(.7) rotate(-8deg); opacity:0;
+      animation: thumbUp .9s ease-out forwards;
+    }
+    @keyframes thumbUp {
+      0%   { transform:translate(-50%,-20%) scale(.7) rotate(-8deg); opacity:0; }
+      15%  { opacity:1; }
+      100% { transform:translate(-50%,-140%) scale(1.1) rotate(6deg); opacity:0; }
+    }
+  </style>
+</head>
+<body>
+  <h1><span class="logo"></span> WEKS <b>Tap-To-Math</b></h1>
+
+  <div id="balance" class="balance" data-v="0">💰 Balance: …</div>
+
+  <!-- actions row (added, sits compactly under balance) -->
+  <div class="actions">
+    <button id="inviteBtn" class="ico-btn"><span class="ico">🤝</span><span>Invite Friend</span></button>
+    <button id="leaderBtn" class="ico-btn"><span class="ico">🏆</span><span>Leaderboard</span></button>
+  </div>
+
+  <!-- Daily progress bar -->
+  <div class="bar-wrap">
+    <div class="bar-label">
+      <span>Daily progress</span>
+      <span id="remText">0 / 100</span>
+    </div>
+    <div class="bar">
+      <div id="fill" class="fill"></div>
+    </div>
+  </div>
+
+  <div class="sub">Solve, stack answers, then <b>Claim</b> to earn coins. You can keep practicing after the cap, but extra answers won’t add coins.</div>
+
+  <div class="card">
+    <div class="meta">Correct: <span id="c">0</span> • Wrong: <span id="w">0</span></div>
+    <div id="q" class="q">Loading…</div>
+    <div class="grid" id="answers"></div>
+    <div id="flash" class="meta"></div>
+  </div>
+
+  <button id="claim" class="btn claim">CLAIM & CLOSE</button>
+
+  <script>
+    const tg = window.Telegram.WebApp;
+    tg.ready(); tg.expand();
+    try { tg.MainButton.hide(); } catch {}
+    const alertBox = (m) => { try { tg.showAlert(m); } catch { alert(m); } };
+
+    /* ---------- SOUND (Web Audio) ---------- */
+    let AC;
+    function ctx(){ if(!AC){ AC = new (window.AudioContext||window.webkitAudioContext)(); } return AC; }
+
+    // Improved applause: layered claps + transient tap + soft echo
+    function applause(){
+      const a = ctx();
+
+      // short echo bus
+      const echoDelay = a.createDelay(0.25);
+      echoDelay.delayTime.value = 0.12;
+      const echoGain = a.createGain(); echoGain.gain.value = 0.18;
+      echoDelay.connect(echoGain).connect(a.destination);
+
+      const master = a.createGain(); master.gain.value = 0.28;
+      master.connect(a.destination);
+      master.connect(echoDelay);
+
+      const makeClap = (when = 0, len = 0.22, freq = 1800, gain = 1.0) => {
+        // noise burst
+        const src = a.createBufferSource();
+        const buf = a.createBuffer(1, Math.floor(a.sampleRate*len), a.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i=0;i<d.length;i++){
+          const t = i/a.sampleRate;
+          // colored noise with fast exp decay
+          d[i] = (Math.random()*2-1) * Math.pow(1 - t/len, 2.6);
+        }
+        src.buffer = buf;
+
+        const bp = a.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=freq; bp.Q.value=0.9;
+        const hp = a.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=280;
+        const g  = a.createGain(); g.gain.value = 0.32 * gain;
+
+        // tiny percussive tap
+        const tap = a.createOscillator(); tap.type = 'square';
+        tap.frequency.value = 2200;
+        const tapGain = a.createGain(); tapGain.gain.value = 0.2 * gain;
+        tap.connect(tapGain).connect(master);
+        tap.start(a.currentTime + when);
+        tap.stop(a.currentTime + when + 0.03);
+        tapGain.gain.setTargetAtTime(0.0001, a.currentTime + when + 0.01, 0.01);
+
+        src.connect(bp).connect(hp).connect(g).connect(master);
+        src.start(a.currentTime + when);
+      };
+
+      // a few staggered claps, slightly varied
+      makeClap(0.00, 0.20, 1800, 1.00);
+      makeClap(0.07, 0.22, 1650, 0.9);
+      makeClap(0.14, 0.20, 2050, 0.95);
+      makeClap(0.24, 0.26, 1750, 1.1);
+      makeClap(0.35, 0.22, 1900, 0.8);
+    }
+
+    function soundWrong(){
+      const a = ctx();
+      const o = a.createOscillator(), g=a.createGain();
+      o.type='sawtooth'; o.frequency.value=160; g.gain.value=0.14;
+      o.connect(g).connect(a.destination); o.start();
+      setTimeout(()=>{ g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime+0.08); o.stop(a.currentTime+0.1); }, 220);
+    }
+
+    /* ---------- Bigger flying coin & +10 pop ---------- */
+    function flyCoin(fromEl, toEl){
+      const s = fromEl.getBoundingClientRect();
+      const t = toEl.getBoundingClientRect();
+      const coin = document.createElement('div');
+      coin.className = 'coin';
+      coin.style.left = `${s.left + s.width/2}px`;
+      coin.style.top  = `${s.top  + s.height/2}px`;
+      document.body.appendChild(coin);
+
+      const dx = (t.left + t.width/2) - (s.left + s.width/2);
+      const dy = (t.top  + 8) - (s.top + s.height/2);
+      const start = performance.now(), dur = 620;
+      const arc = Math.min(120, Math.max(60, Math.abs(dx)*0.2)); // gentle arc based on distance
+
+      (function anim(ts){
+        const p = Math.min(1, (ts-start)/dur);
+        const ease = 1 - Math.pow(1-p,3);
+        const x = dx*ease;
+        const y = dy*ease - arc*Math.sin(Math.PI*ease); // arc path
+        const scale = 1 - 0.25*ease;
+        const fade = 1 - 0.15*ease;
+        coin.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+        coin.style.opacity = String(fade);
+        if(p<1) requestAnimationFrame(anim); else coin.remove();
+      })(start);
+
+      // +10 pop near start
+      const pop = document.createElement('div');
+      pop.className = 'pop';
+      pop.textContent = '+10';
+      pop.style.left = `${s.left + s.width/2}px`;
+      pop.style.top  = `${s.top + s.height/2}px`;
+      document.body.appendChild(pop);
+      setTimeout(()=>pop.remove(), 900);
+    }
+
+    /* ---------- Thumbs-up animation ---------- */
+    function thumbs(btnEl){
+      const r = btnEl.getBoundingClientRect();
+      const t = document.createElement('div');
+      t.className = 'thumb';
+      t.textContent = '👍';
+      t.style.left = `${r.left + r.width/2}px`;
+      t.style.top  = `${r.top + r.height/2}px`;
+      document.body.appendChild(t);
+      setTimeout(()=>t.remove(), 950);
+    }
+
+    /* ---------- Persistent local progress ---------- */
+    const STORAGE_KEY = "weks_progress_v1";
+    const todayStr = () => new Date().toISOString().slice(0,10);
+    function loadProgress() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return { day: todayStr(), correct: 0, wrong: 0 };
+        const obj = JSON.parse(raw);
+        if (obj.day !== todayStr()) return { day: todayStr(), correct: 0, wrong: 0 };
+        return obj;
+      } catch { return { day: todayStr(), correct: 0, wrong: 0 }; }
+    }
+    function saveProgress() { localStorage.setItem(STORAGE_KEY, JSON.stringify(progress)); }
+    function resetProgressForToday() {
+      progress = { day: todayStr(), correct: 0, wrong: 0 };
+      saveProgress(); updateUI(); pendingBalance = 0; updateBalanceDisplay(true);
+    }
+
+    let progress = loadProgress();
+    let current = null;
+
+    /* ---------- Live balance (server + pending) ---------- */
+    let serverBalance = 0;   // from KV
+    let pendingBalance = 0;  // local (10 per correct)
+    let displayedBalance = 0; // last number shown
+
+    /* ---------- Server daily base ---------- */
+    let serverTodayUsed = 0;
+    const DAILY_CAP = 100;
+
+    /* ---------- Animated coin counter ---------- */
+    function animateCoins(from, to, dur=600){
+      const el = document.getElementById("balance");
+      const start = performance.now();
+      (function tick(t){
+        const p = Math.min(1, (t-start)/dur);
+        const eased = 1 - Math.pow(1-p, 3);
+        const val = Math.round(from + (to-from)*eased);
+        el.textContent = `💰 Balance: ${val}`;
+        if(p<1) requestAnimationFrame(tick); else { displayedBalance = to; }
+      })(start);
+    }
+    function updateBalanceDisplay(force=false){
+      const next = serverBalance + pendingBalance;
+      if(force){ displayedBalance = next; document.getElementById("balance").textContent = `💰 Balance: ${next}`; return; }
+      animateCoins(displayedBalance, next);
+    }
+
+    /* ---------- UI helpers ---------- */
+    function updateUI(){
+      document.getElementById("c").textContent = progress.correct;
+      document.getElementById("w").textContent = progress.wrong;
+      updateBar();
+    }
+    function updateBar(){
+      const localUsed = progress.correct + progress.wrong;
+      const used = Math.min(DAILY_CAP, serverTodayUsed + localUsed);
+      const pct = (used / DAILY_CAP) * 100;
+      document.getElementById("fill").style.width = `${pct}%`;
+      document.getElementById("remText").textContent = `${used} / ${DAILY_CAP}`;
+    }
+    function flash(text, good){
+      const f = document.getElementById("flash");
+      f.textContent = text;
+      f.className = "meta " + (good===true?"ok":good===false?"bad":"");
+    }
+
+    /* ---------- Quiz ---------- */
+    function randint(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
+    function newQuestion(){
+      const ops = ["+","-","×","÷"];
+      const op = ops[randint(0,ops.length-1)];
+      let a = randint(2,25), b = randint(2,25), ans=0;
+      if(op==="+"){ ans = a+b; }
+      else if(op==="-"){ if(b>a){ [a,b]=[b,a]; } ans=a-b; }
+      else if(op==="×"){ ans=a*b; }
+      else if(op==="÷"){ ans = randint(2,12); b = randint(2,12); a = ans*b; }
+      current = { text: `${a} ${op} ${b} = ?`, ans };
+      document.getElementById("q").textContent = current.text;
+
+      const opts = new Set([ans]);
+      while(opts.size<4){
+        const delta = randint(1,10), sign = Math.random()<0.5?-1:1;
+        opts.add(ans + sign*delta);
+      }
+      const shuffled = Array.from(opts).sort(()=>Math.random()-0.5);
+
+      const box = document.getElementById("answers");
+      box.innerHTML = "";
+      shuffled.forEach(v=>{
+        const btn = document.createElement("button");
+        btn.className = "btn";
+        btn.textContent = v;
+        btn.onclick = (e)=>choose(v, e.currentTarget);
+        box.appendChild(btn);
+      });
+      flash("");
+    }
+
+    function choose(v, btnEl){
+      if(!current) return;
+      if(Number(v)===current.ans){
+        progress.correct++;
+        pendingBalance += 10; // instant local reward
+        flash("Correct! +10 coins (pending) ✅", true);
+        tg.HapticFeedback.notificationOccurred("success");
+        applause();                    // improved applause sound
+        thumbs(btnEl);                 // 👍 thumbs-up at the button
+        flyCoin(btnEl, document.getElementById("balance")); // bigger coin to balance
+      } else {
+        progress.wrong++;
+        flash(`Oops! Correct was ${current.ans}`, false);
+        tg.HapticFeedback.notificationOccurred("error");
+        soundWrong();                  // buzzer
+        // red pop at wrong
+        const r = btnEl.getBoundingClientRect();
+        const pop = document.createElement('div');
+        pop.className = 'pop'; pop.style.color = '#ff7a7a';
+        pop.textContent = '✖';
+        pop.style.left = `${r.left + r.width/2}px`;
+        pop.style.top  = `${r.top + r.height/2}px`;
+        document.body.appendChild(pop);
+        setTimeout(()=>pop.remove(), 900);
+      }
+      saveProgress();
+      updateUI();
+      updateBalanceDisplay();
+      newQuestion();
+    }
+
+    /* ---------- Fetch balance + today used from server ---------- */
+    async function fetchBalanceAndToday() {
+      try {
+        const resp = await fetch("https://weks-bot.vercel.app/api/balance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ initData: tg.initData || "" })
+        });
+        const data = await resp.json();
+        if (data.ok) {
+          serverBalance   = data.balance;
+          serverTodayUsed = data.todayUsed || 0;
+          pendingBalance  = progress.correct * 10; // restore pending
+          displayedBalance = serverBalance;        // base
+          document.getElementById("balance").textContent = `💰 Balance: ${displayedBalance}`;
+          updateBalanceDisplay(); // animate to server + pending
+          updateBar();
+        } else {
+          document.getElementById("balance").textContent = "💰 Balance: error";
+        }
+      } catch {
+        document.getElementById("balance").textContent = "💰 Balance: error";
+      }
+    }
+
+    /* ---------- Claim ---------- */
+    async function claim() {
+      try {
+        const resp = await fetch("https://weks-bot.vercel.app/api/claim", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            initData: tg.initData || "",
+            correct: progress.correct,
+            wrong: progress.wrong
+          })
+        });
+        const data = await resp.json();
+        if (!data.ok) {
+          alertBox("Claim failed: " + (data.error || "Unknown error"));
+          return;
+        }
+
+        if (data.message === "DAILY_CAP_REACHED") {
+          alertBox(
+            `🎉 You reached the daily cap of ${data.dailyCap}.\n` +
+            `Keep practicing! Answers won’t add coins until tomorrow.\n\n` +
+            `Balance: ${data.balance}`
+          );
+        } else {
+          alertBox(
+            `✅ Claimed ${data.creditedCorrect} correct (+${data.coins} coins).\n` +
+            `❌ Wrong: ${data.creditedWrong}\n` +
+            `Today used: ${data.today}/${data.dailyCap}\n` +
+            `Balance: ${data.balance}`
+          );
+          // coin shower to balance
+          for(let i=0;i<4;i++){
+            setTimeout(()=>{
+              const fake = { getBoundingClientRect: ()=>({ left: innerWidth*(.2+.6*Math.random()), top: innerHeight-40, width:0, height:0 }) };
+              flyCoin(fake, document.getElementById("balance"));
+            }, i*120);
+          }
+        }
+
+        // Sync with server truth
+        serverBalance   = data.balance;
+        serverTodayUsed = data.today; // used today after claim
+        resetProgressForToday();      // clears local pending
+        updateBar();
+        updateBalanceDisplay(true);   // snap to new server balance
+
+        setTimeout(()=>{ try { tg.close(); } catch {} }, 150);
+      } catch (e) {
+        console.error(e);
+        alertBox("Could not send claim. Check your internet and try again.");
+      }
+    }
+
+    document.getElementById("claim").onclick = claim;
+
+    /* ---------- Actions (Invite / Leaderboard) ---------- */
+    const inviteBtn = document.getElementById('inviteBtn');
+    const leaderBtn = document.getElementById('leaderBtn');
+
+    inviteBtn.onclick = () => {
+      // TODO: replace ref link with your bot deep link + userRef
+      const ref = tg.initDataUnsafe?.user?.id ? `?start=ref_${tg.initDataUnsafe.user.id}` : '';
+      const url = `https://t.me/WEKS_TapToMath_Bot${ref}`;
+      try { tg.openTelegramLink(url); } catch { window.open(url, '_blank'); }
+    };
+
+    leaderBtn.onclick = () => {
+      // Placeholder — open your leaderboard page when ready
+      const url = `https://weks-bot.vercel.app/leaderboard`;
+      try { tg.openLink(url); } catch { window.open(url, '_blank'); }
+    };
+
+    /* ---------- Init ---------- */
+    fetchBalanceAndToday();
+    newQuestion();
+    updateUI();
+  </script>
+</body>
+</html>
