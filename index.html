@@ -269,22 +269,21 @@ if (Number(v)===current.ans){
           return;
         }
 
-        if (data.message === "DAILY_CAP_REACHED") {
-          alertBox(
-            `🎉 You reached the daily cap of ${data.dailyCap}.\n` +
-            `Keep practicing! Answers won’t add coins until tomorrow.\n\n` +
-            `Balance: ${data.balance}`
-          );
-          burst(window.innerWidth / 2, 140, 32); // 🎉 bigger confetti when claim succeeds
-
-        } else {
-          alertBox(
-            `✅ Claimed ${data.creditedCorrect} correct (+${data.coins} coins).\n` +
-            `❌ Wrong: ${data.creditedWrong}\n` +
-            `Today used: ${data.today}/${data.dailyCap}\n` +
-            `Balance: ${data.balance}`
-          );
-        }
+if (data.message === "DAILY_CAP_REACHED") {
+  alertBox(
+    `🎉 You reached the daily cap of ${data.dailyCap}.\n` +
+    `Keep practicing! Answers won’t add coins until tomorrow.\n\n` +
+    `Balance: ${data.balance}`
+  );
+} else {
+  alertBox(
+    `✅ Claimed ${data.creditedCorrect} correct (+${data.coins} coins).\n` +
+    `❌ Wrong: ${data.creditedWrong}\n` +
+    `Today used: ${data.today}/${data.dailyCap}\n` +
+    `Balance: ${data.balance}`
+  );
+  burst(window.innerWidth / 2, 140, 32); // 🎉 big confetti on successful claim
+}
 
         // Sync with server truth
         serverBalance = data.balance;
@@ -309,4 +308,5 @@ if (Number(v)===current.ans){
   </script>
 </body>
 </html>
+
 
