@@ -43,9 +43,9 @@
 </head>
 <body>
   <h1><span class="logo"></span> WEKS <b>Tap-To-Math</b></h1>
-  <div id="balance" class="balance">💰 Balance: …</div>
+  <div id="balance" class="balance" data-v="0">💰 Balance: …</div>
 
-  <!-- Progress bar -->
+  <!-- Daily progress bar -->
   <div class="bar-wrap">
     <div class="bar-label">
       <span>Daily progress</span>
@@ -56,7 +56,7 @@
     </div>
   </div>
 
-  <div class="sub">Solve, stack answers, then <b>Claim</b> to get coins.</div>
+  <div class="sub">Solve, stack answers, then <b>Claim</b> to earn coins. You can keep practicing after the cap, but extra answers won’t add coins.</div>
 
   <div class="card">
     <div class="meta">Correct: <span id="c">0</span> • Wrong: <span id="w">0</span></div>
@@ -100,6 +100,19 @@
     let serverTodayUsed = 0;
     const DAILY_CAP = 100;
 
+    // ---- coin counter animation ----
+    function animateCoins(el, from, to, dur=600){
+      const start = performance.now();
+      function tick(t){
+        const p = Math.min(1, (t-start)/dur);
+        const eased = 1 - Math.pow(1-p, 3);
+        const val = Math.round(from + (to-from)*eased);
+        el.textContent = `💰 Balance: ${val}`;
+        if(p<1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    }
+
     // ---- UI helpers ----
     function updateUI(){
       document.getElementById("c").textContent = progress.correct;
@@ -107,7 +120,11 @@
       updateBar();
     }
     function updateBalanceDisplay(){
-      document.getElementById("balance").textContent = `💰 Balance: ${serverBalance + pendingBalance}`;
+      const el = document.getElementById("balance");
+      const prev = Number(el.dataset.v || 0);
+      const next = serverBalance + pendingBalance;
+      el.dataset.v = String(next);
+      animateCoins(el, prev, next);
     }
     function updateBar(){
       const localUsed = progress.correct + progress.wrong;
@@ -158,7 +175,7 @@
       if(!current) return;
       if(Number(v)===current.ans){
         progress.correct++;
-        pendingBalance += 10;
+        pendingBalance += 10; // instant local reward
         flash("Correct! +10 coins (pending) ✅", true);
         tg.HapticFeedback.notificationOccurred("success");
       } else {
@@ -185,6 +202,9 @@
           serverBalance = data.balance;
           serverTodayUsed = data.todayUsed || 0;
           pendingBalance = progress.correct * 10; // restore pending
+          // set dataset for initial animation base
+          const balEl = document.getElementById("balance");
+          balEl.dataset.v = String(serverBalance);
           updateBalanceDisplay();
           updateBar();
         } else {
@@ -213,10 +233,20 @@
           return;
         }
 
-        const msg = data.message === "DAILY_CAP_REACHED"
-          ? `✔️ Daily cap reached (${data.dailyCap}/day).`
-          : `✅ Claimed ${data.creditedCorrect} correct (+${data.coins} coins).\n❌ Wrong: ${data.creditedWrong}`;
-        alertBox(`${msg}\nToday used: ${data.today}/${data.dailyCap}\nBalance: ${data.balance}`);
+        if (data.message === "DAILY_CAP_REACHED") {
+          alertBox(
+            `🎉 You reached the daily cap of ${data.dailyCap}.\n` +
+            `Keep practicing! Answers won’t add coins until tomorrow.\n\n` +
+            `Balance: ${data.balance}`
+          );
+        } else {
+          alertBox(
+            `✅ Claimed ${data.creditedCorrect} correct (+${data.coins} coins).\n` +
+            `❌ Wrong: ${data.creditedWrong}\n` +
+            `Today used: ${data.today}/${data.dailyCap}\n` +
+            `Balance: ${data.balance}`
+          );
+        }
 
         // Sync with server truth
         serverBalance = data.balance;
