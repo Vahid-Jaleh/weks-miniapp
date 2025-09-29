@@ -16,7 +16,7 @@
     .balance { font-size:18px; margin:4px 0 10px; position:relative; }
     .sub { opacity:.85; margin-bottom:14px; }
 
-    /* actions row (kept) */
+    /* actions row (kept layout) */
     .actions { display:flex; gap:8px; justify-content:center; margin:6px 0 10px; }
     .ico-btn {
       display:inline-flex; align-items:center; gap:6px;
@@ -40,7 +40,7 @@
     .q { font-size:34px; margin:18px 0; }
     .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 
-    /* Gold sheen button */
+    /* Gold sheen buttons */
     .btn { padding:14px 10px; border:0; border-radius:12px; font-size:18px; cursor:pointer; color:#111;
       background: linear-gradient(180deg,#ffe16f,#ffc22a);
       box-shadow: 0 6px 20px rgba(255,194,42,.35);
@@ -76,11 +76,7 @@
       transform:translate(-50%,-50%) scale(0.8); opacity:0;
       animation: popUp .8s ease forwards;
     }
-    @keyframes popUp {
-      0% { transform:translate(-50%,-50%) scale(.8); opacity:0; }
-      15% { opacity:1; }
-      100% { transform:translate(-50%,-120%) scale(1.15); opacity:0; }
-    }
+    @keyframes popUp { 0%{transform:translate(-50%,-50%) scale(.8); opacity:0;} 15%{opacity:1;} 100%{transform:translate(-50%,-120%) scale(1.15); opacity:0;} }
 
     /* 👍 thumbs-up animation */
     .thumb {
@@ -89,13 +85,9 @@
       transform:translate(-50%,-50%) scale(.7) rotate(-8deg); opacity:0;
       animation: thumbUp .9s ease-out forwards;
     }
-    @keyframes thumbUp {
-      0%   { transform:translate(-50%,-20%) scale(.7) rotate(-8deg); opacity:0; }
-      15%  { opacity:1; }
-      100% { transform:translate(-50%,-140%) scale(1.1) rotate(6deg); opacity:0; }
-    }
+    @keyframes thumbUp { 0%{transform:translate(-50%,-20%) scale(.7) rotate(-8deg); opacity:0;} 15%{opacity:1;} 100%{transform:translate(-50%,-140%) scale(1.1) rotate(6deg); opacity:0;} }
 
-    /* Mute toggle (fixed, does not affect layout flow) */
+    /* Mute toggle (fixed, not changing layout) */
     .mute-toggle {
       position: fixed; right: 14px; bottom: 14px; z-index: 10000;
       width: 46px; height: 46px; border: 0; border-radius: 50%;
@@ -155,6 +147,7 @@
         close(){},
         openTelegramLink: (u)=>window.open(u, '_blank'),
         openLink: (u)=>window.open(u, '_blank'),
+        sendData: ()=>{}, // no-op outside Telegram
         initData: "",
         initDataUnsafe: {}
       };
@@ -184,10 +177,7 @@
       try { localStorage.setItem("weks_muted", isMuted ? "1" : "0"); } catch {}
       document.getElementById('muteBtn').textContent = isMuted ? "🔇" : "🔊";
     }
-    function ensureAudioStarted() {
-      if (!AC) return;
-      if (AC.state === "suspended") { AC.resume?.(); }
-    }
+    function ensureAudioStarted() { if (AC && AC.state === "suspended") { AC.resume?.(); } }
 
     // Applause + crowd cheer
     function applause(){
@@ -262,8 +252,7 @@
     }
 
     function soundWrong(){
-      const a = ctx();
-      ensureAudioStarted();
+      const a = ctx(); ensureAudioStarted();
       const o = a.createOscillator(), g=a.createGain();
       o.type='sawtooth'; o.frequency.value=160; g.gain.value=0.14;
       o.connect(g).connect(masterGain); o.start();
@@ -301,9 +290,8 @@
     const DAILY_CAP = 100;
 
     /* ---------- Helpers ---------- */
-    function usedLocal(){ return progress.correct + progress.wrong; }
-    function remainingToday(){ return Math.max(0, DAILY_CAP - (serverTodayUsed + usedLocal())); }
-    function canEarnAnother(){ return (serverTodayUsed + usedLocal()) < DAILY_CAP; }
+    const usedLocal = () => progress.correct + progress.wrong;
+    const canEarnAnother = () => (serverTodayUsed + usedLocal()) < DAILY_CAP;
 
     /* ---------- Animated coin counter ---------- */
     function animateCoins(from, to, dur=600){
@@ -327,12 +315,8 @@
     function updateUI(){
       document.getElementById("c").textContent = progress.correct;
       document.getElementById("w").textContent = progress.wrong;
-      updateBar();
-    }
-    function updateBar(){
       const used = Math.min(DAILY_CAP, serverTodayUsed + usedLocal());
-      const pct = (used / DAILY_CAP) * 100;
-      document.getElementById("fill").style.width = `${pct}%`;
+      document.getElementById("fill").style.width = `${(used/DAILY_CAP)*100}%`;
       document.getElementById("remText").textContent = `${used} / ${DAILY_CAP}`;
     }
     function flash(text, good){
@@ -381,7 +365,7 @@
       if(Number(v)===current.ans){
         progress.correct++;
         if (eligible){
-          pendingBalance += 10; // only add if under cap
+          pendingBalance += 10;
           flash("Correct! +10 coins (pending) ✅", true);
         } else {
           flash("Correct! (daily cap reached — no coins added)", true);
@@ -404,10 +388,11 @@
         document.body.appendChild(pop);
         setTimeout(()=>pop.remove(), 900);
       }
+
       saveProgress();
       updateUI();
       updateBalanceDisplay();
-      newQuestion();
+      newQuestion(); // ✅ always continue
     }
 
     /* ---------- Flying coin & +10 pop ---------- */
@@ -458,16 +443,15 @@
           serverBalance   = data.balance;
           serverTodayUsed = data.todayUsed || 0;
 
-          // CLAMP pending to remaining capacity from the server’s view
+          // Clamp pending to remaining capacity from the server’s view
           const remainingFromServer = Math.max(0, DAILY_CAP - serverTodayUsed);
-          const localCorrect = progress.correct;
-          const creditableCorrect = Math.min(localCorrect, remainingFromServer);
+          const creditableCorrect = Math.min(progress.correct, remainingFromServer);
           pendingBalance  = creditableCorrect * 10;
 
-          displayedBalance = serverBalance;  // base
+          displayedBalance = serverBalance;
           document.getElementById("balance").textContent = `💰 Balance: ${displayedBalance}`;
-          updateBalanceDisplay();            // animate to server + clamped pending
-          updateBar();
+          updateBalanceDisplay();
+          updateUI();
         } else {
           document.getElementById("balance").textContent = "💰 Balance: error";
         }
@@ -515,9 +499,9 @@
         // Sync with server truth
         serverBalance   = data.balance;
         serverTodayUsed = data.today;
-        resetProgressForToday();      // clears local pending
-        updateBar();
-        updateBalanceDisplay(true);   // snap to new server balance
+        resetProgressForToday();
+        updateUI();
+        updateBalanceDisplay(true);
 
         setTimeout(()=>{ try { tg.close?.(); } catch {} }, 150);
       } catch (e) {
@@ -530,13 +514,24 @@
     /* ---------- Actions (Invite / Leaderboard) ---------- */
     const inviteBtn = document.getElementById('inviteBtn');
     const leaderBtn = document.getElementById('leaderBtn');
+    const botUsername = "WeksMathGameBot"; // <-- change if different
 
     inviteBtn.onclick = () => {
-      const botUsername = "WeksMathGameBot"; // your real bot username
+      // Build the same referral link your /invite uses
       const uid = tg.initDataUnsafe?.user?.id;
-      const refParam = uid ? `?start=ref_${uid}` : "";
-      const url = `https://t.me/${botUsername}${refParam}`;
-      try { tg.openTelegramLink(url); } catch { window.open(url, '_blank'); }
+      const refLink = `https://t.me/${botUsername}${uid ? `?start=ref_${uid}` : ""}`;
+
+      // 1) Ask the bot to generate the same message as /invite
+      //    Your bot should handle web_app_data: {"type":"invite"} and reply with the invite text+link.
+      try {
+        tg.sendData(JSON.stringify({ type: "invite", link: refLink }));
+        alertBox("📨 Check the chat — your invite message is ready to forward.");
+      } catch (e) {
+        // 2) Fallback: open Telegram share sheet prefilled with the link and text
+        const text = `🕹 Invite friends and earn +2,000 each!\nYour link: ${refLink}`;
+        const share = `https://t.me/share/url?url=${encodeURIComponent(refLink)}&text=${encodeURIComponent(text)}`;
+        try { tg.openTelegramLink(share); } catch { window.open(share, '_blank'); }
+      }
     };
 
     leaderBtn.onclick = () => {
@@ -547,11 +542,7 @@
 
     /* ---------- Mute toggle ---------- */
     const muteBtn = document.getElementById('muteBtn');
-    muteBtn.addEventListener('click', () => {
-      ctx();
-      AC.resume?.();
-      setMuted(!isMuted);
-    });
+    muteBtn.addEventListener('click', () => { ctx(); AC.resume?.(); setMuted(!isMuted); });
     document.getElementById('muteBtn').textContent = isMuted ? "🔇" : "🔊";
 
     /* ---------- Init ---------- */
