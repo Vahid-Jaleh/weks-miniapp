@@ -40,7 +40,7 @@
   <script>
     const tg = window.Telegram.WebApp;
     tg.ready(); tg.expand();
-    tg.MainButton.setText("CLAIM & CLOSE"); tg.MainButton.show();
+    try { tg.MainButton.hide(); } catch {}
 
     const toast = (m) => { try { tg.showToast(m); } catch {} };
     const alertBox = (m) => { try { tg.showAlert(m); } catch { alert(m); } };
@@ -58,9 +58,7 @@
       else if(op==="-"){ if(b>a){ [a,b]=[b,a]; } ans=a-b; }
       else if(op==="×"){ ans=a*b; }
       else if(op==="÷"){
-        ans = randint(2,12);
-        b = randint(2,12);
-        a = ans*b;
+        ans = randint(2,12); b = randint(2,12); a = ans*b;
       }
 
       current = { text: `${a} ${op} ${b} = ?`, ans };
@@ -68,8 +66,7 @@
 
       const opts = new Set([ans]);
       while(opts.size<4){
-        const delta = randint(1,10);
-        const sign = Math.random()<0.5?-1:1;
+        const delta = randint(1,10), sign = Math.random()<0.5?-1:1;
         opts.add(ans + sign*delta);
       }
       const shuffled = Array.from(opts).sort(()=>Math.random()-0.5);
@@ -112,10 +109,7 @@
         const resp = await fetch("https://weks-bot.vercel.app/api/claim", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            initData: tg.initData || "",
-            correct
-          })
+          body: JSON.stringify({ initData: tg.initData || "", correct })
         });
         const data = await resp.json();
         if (!data.ok) {
@@ -133,9 +127,7 @@
       }
     }
 
-    tg.MainButton.onClick(claim);
     document.getElementById("claim").onclick = claim;
-
     newQuestion();
   </script>
 </body>
