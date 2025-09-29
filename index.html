@@ -35,20 +35,15 @@
     <div id="flash" class="meta"></div>
   </div>
 
-  <!-- In-page fallback claim button -->
   <button id="claim" class="btn claim">CLAIM & CLOSE</button>
 
   <script>
     const tg = window.Telegram.WebApp;
-    tg.ready();
-    tg.expand();
+    tg.ready(); tg.expand();
+    tg.MainButton.setText("CLAIM & CLOSE"); tg.MainButton.show();
 
-    // Native MainButton setup
-    tg.MainButton.setText("CLAIM & CLOSE");
-    tg.MainButton.show();
-
-    // Small helper
     const toast = (m) => { try { tg.showToast(m); } catch {} };
+    const alertBox = (m) => { try { tg.showAlert(m); } catch { alert(m); } };
 
     let correct = 0, wrong = 0, current = null;
 
@@ -111,35 +106,35 @@
       newQuestion();
     }
 
-    async function doClaim() {
-      const payload = JSON.stringify({ t:"claim", correct });
-      toast("Sending claim…");
-
+    async function claim() {
       try {
-        // Try sending immediately (works if write access already granted)
-        tg.sendData(payload);
-
-        // For clients requiring explicit permission:
-        if (typeof tg.requestWriteAccess === "function") {
-          const granted = await tg.requestWriteAccess().catch(() => false);
-          if (!granted) {
-            tg.showAlert("Please allow write access so we can credit your coins.");
-            return;
-          }
-          tg.sendData(payload); // send again after grant
+        toast("Sending claim…");
+        const resp = await fetch("https://weks-bot.vercel.app/api/claim", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            initData: tg.initData || "",
+            correct
+          })
+        });
+        const data = await resp.json();
+        if (!data.ok) {
+          alertBox("Claim failed: " + (data.error || "Unknown error"));
+          return;
         }
-
-        // Close after a short delay to ensure send queues
-        setTimeout(() => { try { tg.close(); } catch {} }, 150);
+        const msg = data.message === "DAILY_CAP_REACHED"
+          ? `✔️ Daily cap reached (${data.dailyCap}/day).`
+          : `✅ Claimed ${data.creditedQ} answers (+${data.coins} coins).`;
+        alertBox(`${msg}\nToday: ${data.today}/${data.dailyCap}\nBalance: ${data.balance}`);
+        setTimeout(()=>{ try { tg.close(); } catch {} }, 150);
       } catch (e) {
         console.error(e);
-        try { tg.showAlert("Could not send claim. Please try again."); } catch {}
+        alertBox("Could not send claim. Check your internet and try again.");
       }
     }
 
-    // Wire both buttons
-    tg.MainButton.onClick(doClaim);
-    document.getElementById("claim").onclick = doClaim;
+    tg.MainButton.onClick(claim);
+    document.getElementById("claim").onclick = claim;
 
     newQuestion();
   </script>
