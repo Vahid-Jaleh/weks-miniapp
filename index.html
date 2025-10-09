@@ -13,6 +13,9 @@
     h1 { margin: 0 0 8px; display:flex; align-items:center; gap:10px; justify-content:center; font-size:20px; line-height:1.2; }
     .logo { width:28px; height:28px; border-radius:6px; background:#ffd54a; display:inline-block; }
 
+    /* MAU badge */
+    #mau-badge { font:600 14px/1.2 system-ui; margin: 4px 0 8px; }
+
     .balance { font-size:18px; margin:4px 0 10px; position:relative; }
     .sub { opacity:.85; margin-bottom:14px; }
 
@@ -100,6 +103,7 @@
 </head>
 <body>
   <h1><span class="logo"></span> WEKS <b>Tap-To-Math</b></h1>
+  <div id="mau-badge">MAU: …</div>
   <div id="balance" class="balance" data-v="0">💰 Balance: …</div>
 
   <div class="actions">
@@ -144,6 +148,31 @@
     })();
     tg.ready(); tg.expand?.(); tg.MainButton?.hide?.();
     const alertBox = (m) => { try { tg.showAlert(m); } catch { alert(m); } };
+
+    /* ---------- MAU + tracking helpers ---------- */
+    const initData = window.Telegram?.WebApp?.initData || "";
+
+    async function track(event_type, event_value = null) {
+      try {
+        await fetch("/api/track", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ initData, event_type, event_value })
+        });
+      } catch (e) {
+        console.warn("track failed", e);
+      }
+    }
+
+    async function refreshMAU() {
+      try {
+        const r = await fetch("/api/mau");
+        const { mau } = await r.json();
+        document.getElementById("mau-badge").textContent = `MAU: ${Number(mau ?? 0).toLocaleString()}`;
+      } catch {
+        document.getElementById("mau-badge").textContent = "MAU: –";
+      }
+    }
 
     /* ---------- Audio (robust) ---------- */
     let AC, masterGain, isMuted = false, audioUnlocked = false;
@@ -294,6 +323,8 @@
         else { flash("Correct! (daily cap reached — no coins added)", true); }
         tg.HapticFeedback?.notificationOccurred?.("success");
         applause(); thumbs(btnEl); flyCoin(btnEl, document.getElementById("balance"));
+        // track correct answer
+        track("answer_correct", { q: current.text });
       } else {
         progress.wrong++;
         flash(`Oops! Correct was ${current.ans}`, false);
@@ -306,6 +337,8 @@
         pop.style.top  = `${r.top + r.height/2}px`;
         document.body.appendChild(pop);
         setTimeout(()=>pop.remove(),900);
+        // track wrong answer
+        track("answer_wrong", { q: current.text });
       }
       saveProgress(); updateUI(); updateBalanceDisplay(); newQuestion();
     }
@@ -378,6 +411,9 @@
       const refLink   = `https://t.me/${botUsername}${uid ? `?start=ref_${uid}` : ""}`;
       const startDeep = `https://t.me/${botUsername}?start=${uid ? `invite_ref_${uid}` : "invite"}`;
 
+      // log invite attempt
+      track("invite_sent", { referral_code: uid ? `ref_${uid}` : null });
+
       // Try to notify your bot (if WebApp opened from a web_app button)
       let sentViaSendData = false;
       try { tg.sendData(JSON.stringify({ type: "invite", link: refLink })); sentViaSendData = true; } catch {}
@@ -396,7 +432,6 @@
         }, async (btnId) => {
           if (btnId === "open") {
             try { tg.openTelegramLink(startDeep); } catch { window.open(startDeep, "_blank"); }
-            // If sendData worked, opening chat shows your bot's reply; if not, deep link triggers /start payload.
           } else if (btnId === "share") {
             const share = `https://t.me/share/url?url=${encodeURIComponent(refLink)}&text=${encodeURIComponent("🕹 Invite friends and earn +2,000 each!")}`;
             try { tg.openTelegramLink(share); } catch { window.open(share, "_blank"); }
@@ -424,6 +459,13 @@
 
     /* ---------- Init ---------- */
     fetchBalanceAndToday(); newQuestion(); updateUI();
+
+    // Kick off tracking + MAU updates
+    window.addEventListener("load", () => {
+      track("app_open");
+      refreshMAU();
+      setInterval(refreshMAU, 60_000);
+    });
   </script>
 </body>
 </html>
